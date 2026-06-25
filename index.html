@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#eef4f8">
+    <title>InkScreen Studio</title>
+    <link rel="manifest" href="./manifest.json">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">InkScreen</p>
+          <h1>墨水屏内容工作台</h1>
+        </div>
+        <div class="status-pill" id="connectionStatus">未连接</div>
+      </header>
+
+      <section class="workspace">
+        <aside class="panel editor-panel">
+          <div class="panel-head">
+            <h2>内容</h2>
+            <div class="mini-actions">
+              <button id="addPageButton" class="icon-button" type="button" title="新增页面" aria-label="新增页面">+</button>
+              <button id="duplicatePageButton" class="icon-button" type="button" title="复制页面" aria-label="复制页面">⧉</button>
+              <button id="deletePageButton" class="icon-button danger" type="button" title="删除页面" aria-label="删除页面">×</button>
+            </div>
+          </div>
+
+          <div class="page-list" id="pageList" aria-label="页面列表"></div>
+
+          <label class="field">
+            <span>页面标题</span>
+            <input id="pageTitleInput" type="text" maxlength="40" autocomplete="off">
+          </label>
+
+          <div class="segmented" role="tablist" aria-label="页面类型">
+            <button class="segment active" type="button" data-kind="dashboard">看板</button>
+            <button class="segment" type="button" data-kind="agenda">日程</button>
+            <button class="segment" type="button" data-kind="checklist">清单</button>
+            <button class="segment" type="button" data-kind="quote">便签</button>
+            <button class="segment" type="button" data-kind="image">图片</button>
+          </div>
+
+          <label class="field">
+            <span>正文</span>
+            <textarea id="bodyInput" rows="8" spellcheck="false"></textarea>
+          </label>
+
+          <label class="field">
+            <span>页脚</span>
+            <input id="footerInput" type="text" maxlength="32" autocomplete="off">
+          </label>
+
+          <label class="field image-field" id="imageField">
+            <span>图片</span>
+            <input id="imageInput" type="file" accept="image/*">
+          </label>
+        </aside>
+
+        <section class="preview-column">
+          <div class="panel toolbar">
+            <label class="field compact">
+              <span>尺寸</span>
+              <select id="presetInput">
+                <option value="250x122">2.13 寸横向 250×122</option>
+                <option value="122x250">2.13 寸纵向 122×250</option>
+                <option value="296x128">2.9 寸 296×128</option>
+                <option value="400x300">4.2 寸 400×300</option>
+                <option value="custom">自定义</option>
+              </select>
+            </label>
+            <label class="field compact">
+              <span>宽</span>
+              <input id="widthInput" type="number" min="64" max="1200" step="1" value="250">
+            </label>
+            <label class="field compact">
+              <span>高</span>
+              <input id="heightInput" type="number" min="64" max="1200" step="1" value="122">
+            </label>
+            <label class="field compact">
+              <span>二值化</span>
+              <select id="ditherInput">
+                <option value="threshold">阈值</option>
+                <option value="floyd">抖动</option>
+              </select>
+            </label>
+            <label class="field compact threshold-field">
+              <span>阈值</span>
+              <input id="thresholdInput" type="range" min="64" max="224" value="156">
+            </label>
+            <label class="toggle">
+              <input id="invertInput" type="checkbox">
+              <span>反相</span>
+            </label>
+          </div>
+
+          <div class="preview-frame">
+            <canvas id="previewCanvas" width="250" height="122"></canvas>
+          </div>
+
+          <div class="metric-strip">
+            <div>
+              <span>页面</span>
+              <strong id="pageMetric">1 / 1</strong>
+            </div>
+            <div>
+              <span>位图</span>
+              <strong id="payloadSize">3813 B</strong>
+            </div>
+            <div>
+              <span>CRC32</span>
+              <strong id="crcValue">-</strong>
+            </div>
+            <div>
+              <span>包</span>
+              <strong id="packageSize">-</strong>
+            </div>
+          </div>
+        </section>
+
+        <aside class="panel transport-panel">
+          <div class="panel-head">
+            <h2>传输</h2>
+          </div>
+
+          <div class="action-group">
+            <button id="bleConnectButton" class="primary" type="button">连接蓝牙</button>
+            <button id="blePackageButton" type="button">发送内容包</button>
+            <button id="bleBitmapButton" type="button">发送当前位图</button>
+          </div>
+
+          <div class="divider"></div>
+
+          <label class="field">
+            <span>Wi-Fi 名称</span>
+            <input id="ssidInput" type="text" autocomplete="off" placeholder="SSID">
+          </label>
+          <label class="field">
+            <span>Wi-Fi 密码</span>
+            <input id="passwordInput" type="password" autocomplete="current-password" placeholder="通过蓝牙写入 ESP32">
+          </label>
+          <button id="wifiConfigButton" type="button">写入 Wi-Fi 配置</button>
+
+          <label class="field">
+            <span>设备地址</span>
+            <input id="deviceIpInput" type="text" inputmode="url" autocomplete="off" placeholder="192.168.4.1">
+          </label>
+          <div class="action-grid">
+            <button id="wifiPackageButton" type="button">Wi-Fi 发内容包</button>
+            <button id="wifiBitmapButton" type="button">Wi-Fi 发位图</button>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="action-grid">
+            <button id="downloadPackageButton" type="button">导出 JSON</button>
+            <button id="downloadPngButton" type="button">导出 PNG</button>
+          </div>
+
+          <pre id="logOutput" class="log-output" aria-live="polite"></pre>
+        </aside>
+      </section>
+    </main>
+
+    <script src="./app.js" defer></script>
+  </body>
+</html>

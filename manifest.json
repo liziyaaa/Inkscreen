@@ -1,0 +1,18 @@
+{
+  "name": "InkScreen Studio",
+  "short_name": "InkScreen",
+  "description": "Mobile tool for composing and uploading ESP32-C3 e-paper display content.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eef4f8",
+  "theme_color": "#1f6f8b",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
