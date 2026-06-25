@@ -1,4 +1,4 @@
-const CACHE_NAME = "inkscreen-studio-v2";
+const CACHE_NAME = "inkscreen-studio-v3";
 const ASSETS = [
   "./",
   "./index.html",

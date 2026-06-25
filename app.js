@@ -1,10 +1,12 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "0.2.0";
+  const APP_VERSION = "0.3.0";
   const STORAGE_KEY = "inkscreen.studio.v2";
   const SCHEMA = "inkscreen.package.v1";
   const CHUNK_SIZE = 180;
+  const RASTER_SCALE = 3;
+  const FONT_STACK = '"Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", Arial, sans-serif';
 
   const SERVICE_UUID = "9f2a0001-6f37-4f1e-9a5e-1b5c00000001";
   const CONTROL_UUID = "9f2a0002-6f37-4f1e-9a5e-1b5c00000001";
@@ -16,15 +18,213 @@
     agenda: "日程",
     checklist: "清单",
     quote: "便签",
-    image: "图片"
+    image: "图片",
+    weather: "天气",
+    focus: "专注",
+    countdown: "倒计时",
+    habit: "习惯",
+    notice: "提醒",
+    device: "设备",
+    word: "单词"
   };
 
-  const DEFAULT_BODY = {
-    dashboard: "天气 26C\n待办 3\n下一节 10:10 电路分析\n电量 86%",
-    agenda: "08:00 | 高等数学 | A201\n10:10 | 电路分析 | B105\n14:00 | 自习 / 项目\n19:30 | 跑步 30 min",
-    checklist: "- [ ] 复习电路\n- [x] 提交作业\n- [ ] 整理桌面\n- [ ] 更新墨水屏",
-    quote: "把今天留一点给自己。\n\n可以是一页计划，也可以只是一句提醒。",
-    image: "上传一张图片后会自动适配到屏幕区域。"
+  const TEMPLATE_ORDER = [
+    "today",
+    "schedule",
+    "weather",
+    "focus",
+    "countdown",
+    "habit",
+    "quote",
+    "image",
+    "notice",
+    "device",
+    "word"
+  ];
+
+  const TEMPLATE_DEFS = {
+    today: {
+      label: "今日看板",
+      kind: "dashboard",
+      title: "今日看板",
+      footer: "InkScreen",
+      defaults: {
+        weather: "晴 26C",
+        todo: "3",
+        next: "10:10 电路分析",
+        battery: "86%",
+        note: "把最重要的一件事先做掉"
+      },
+      fields: [
+        field("weather", "天气", "text"),
+        field("todo", "待办", "text"),
+        field("next", "下一项", "text", true),
+        field("battery", "电量", "text"),
+        field("note", "提醒", "text", true)
+      ]
+    },
+    schedule: {
+      label: "课程/日程",
+      kind: "agenda",
+      title: "课程表",
+      footer: "旋钮翻页",
+      defaults: {
+        items: "08:00 | 高等数学 | A201\n10:10 | 电路分析 | B105\n14:00 | 项目制作 | 实验室\n19:30 | 跑步 30 min"
+      },
+      fields: [field("items", "日程", "textarea", true)]
+    },
+    weather: {
+      label: "天气卡片",
+      kind: "weather",
+      title: "天气",
+      footer: "local",
+      defaults: {
+        city: "杭州",
+        condition: "多云",
+        temp: "26C",
+        highLow: "22 / 29C",
+        humidity: "68%",
+        wind: "东风 2级",
+        advice: "带伞，晚间降温"
+      },
+      fields: [
+        field("city", "城市", "text"),
+        field("condition", "天气", "text"),
+        field("temp", "温度", "text"),
+        field("highLow", "高低温", "text"),
+        field("humidity", "湿度", "text"),
+        field("wind", "风", "text"),
+        field("advice", "建议", "text", true)
+      ]
+    },
+    focus: {
+      label: "番茄专注",
+      kind: "focus",
+      title: "专注",
+      footer: "Focus",
+      defaults: {
+        task: "画 ESP32 原理图",
+        minutes: "25",
+        progress: "40",
+        next: "休息 5 min"
+      },
+      fields: [
+        field("task", "任务", "text", true),
+        field("minutes", "分钟", "number"),
+        field("progress", "进度 %", "number"),
+        field("next", "下一步", "text", true)
+      ]
+    },
+    countdown: {
+      label: "倒计时",
+      kind: "countdown",
+      title: "倒计时",
+      footer: "D-DAY",
+      defaults: {
+        event: "PCB 下单",
+        left: "7",
+        date: "2026-07-02",
+        note: "今天确认 BOM 和封装"
+      },
+      fields: [
+        field("event", "事件", "text", true),
+        field("left", "剩余天数", "number"),
+        field("date", "日期", "text"),
+        field("note", "备注", "text", true)
+      ]
+    },
+    habit: {
+      label: "习惯打卡",
+      kind: "habit",
+      title: "习惯",
+      footer: "Daily",
+      defaults: {
+        habits: "早起 | 1\n阅读 | 1\n运动 | 0\n复盘 | 0",
+        streak: "连续 5 天"
+      },
+      fields: [
+        field("habits", "习惯", "textarea", true),
+        field("streak", "连续", "text")
+      ]
+    },
+    quote: {
+      label: "一句话",
+      kind: "quote",
+      title: "便签",
+      footer: "InkScreen",
+      defaults: {
+        quote: "把今天留一点给自己。",
+        by: "InkScreen"
+      },
+      fields: [
+        field("quote", "内容", "textarea", true),
+        field("by", "署名", "text")
+      ]
+    },
+    image: {
+      label: "图片相框",
+      kind: "image",
+      title: "图片",
+      footer: "Photo",
+      defaults: {
+        caption: "上传图片后自动适配显示区域。"
+      },
+      fields: [field("caption", "说明", "text", true)]
+    },
+    notice: {
+      label: "桌面提醒",
+      kind: "notice",
+      title: "提醒",
+      footer: "Memo",
+      defaults: {
+        tag: "重要",
+        message: "18:30 前把墨水屏外壳尺寸确认掉。",
+        action: "完成后同步 PCB 安装孔"
+      },
+      fields: [
+        field("tag", "标签", "text"),
+        field("message", "内容", "textarea", true),
+        field("action", "动作", "text", true)
+      ]
+    },
+    device: {
+      label: "设备状态",
+      kind: "device",
+      title: "设备",
+      footer: "ESP32-C3",
+      defaults: {
+        wifi: "LiziLab",
+        ip: "192.168.3.42",
+        battery: "86%",
+        status: "在线",
+        updated: "刚刚同步"
+      },
+      fields: [
+        field("wifi", "Wi-Fi", "text"),
+        field("ip", "IP", "text"),
+        field("battery", "电量", "text"),
+        field("status", "状态", "text"),
+        field("updated", "更新", "text", true)
+      ]
+    },
+    word: {
+      label: "单词卡",
+      kind: "word",
+      title: "Daily Word",
+      footer: "word",
+      defaults: {
+        word: "clarity",
+        phonetic: "/klaereti/",
+        meaning: "清晰；明确",
+        example: "Build with clarity."
+      },
+      fields: [
+        field("word", "单词", "text"),
+        field("phonetic", "音标", "text"),
+        field("meaning", "含义", "text", true),
+        field("example", "例句", "text", true)
+      ]
+    }
   };
 
   const PRESETS = new Map([
@@ -35,7 +235,6 @@
   ]);
 
   const el = {};
-
   const state = {
     activePageId: "",
     model: null,
@@ -55,18 +254,26 @@
 
   document.addEventListener("DOMContentLoaded", init);
 
+  function field(name, label, type = "text", wide = false) {
+    return { name, label, type, wide };
+  }
+
   function init() {
     bindElements();
+    populateTemplateSelect();
     state.model = restoreState() || createDefaultModel();
+    const restoredActiveId = state.activePageId;
     normalizeModel();
-    state.activePageId = state.model.pages[0].id;
+    state.activePageId = state.model.pages.some((page) => page.id === restoredActiveId)
+      ? restoredActiveId
+      : state.model.pages[0].id;
     bindEvents();
     syncFormFromState();
     renderPageList();
     updateConnectionUi();
     drawPreviewAndMetrics();
     registerServiceWorker();
-    logLine("就绪：内容会保存到本机浏览器，导出 JSON 可直接给 ESP32 固件解析。");
+    logLine("就绪：v0.3 已使用模板参数和高清二值化渲染。");
   }
 
   function bindElements() {
@@ -77,6 +284,9 @@
       "deletePageButton",
       "pageList",
       "pageTitleInput",
+      "templateInput",
+      "sampleButton",
+      "paramEditor",
       "bodyInput",
       "footerInput",
       "imageField",
@@ -109,28 +319,34 @@
     ids.forEach((id) => {
       el[id] = document.getElementById(id);
     });
-    el.kindButtons = Array.from(document.querySelectorAll("[data-kind]"));
+  }
+
+  function populateTemplateSelect() {
+    el.templateInput.replaceChildren();
+    TEMPLATE_ORDER.forEach((template) => {
+      const def = TEMPLATE_DEFS[template];
+      const option = document.createElement("option");
+      option.value = template;
+      option.textContent = def.label;
+      el.templateInput.append(option);
+    });
   }
 
   function bindEvents() {
     el.addPageButton.addEventListener("click", addPage);
     el.duplicatePageButton.addEventListener("click", duplicatePage);
     el.deletePageButton.addEventListener("click", deletePage);
+    el.sampleButton.addEventListener("click", fillSampleParams);
 
     el.pageTitleInput.addEventListener("input", () => {
       updateActivePage({ title: el.pageTitleInput.value });
     });
-    el.bodyInput.addEventListener("input", () => {
-      updateActivePage({ body: el.bodyInput.value });
-    });
+    el.templateInput.addEventListener("change", () => setTemplate(el.templateInput.value));
+    el.bodyInput.addEventListener("input", handleBodyInput);
     el.footerInput.addEventListener("input", () => {
       updateActivePage({ footer: el.footerInput.value });
     });
     el.imageInput.addEventListener("change", handleImageUpload);
-
-    el.kindButtons.forEach((button) => {
-      button.addEventListener("click", () => setPageKind(button.dataset.kind));
-    });
 
     el.presetInput.addEventListener("change", applyPreset);
     el.widthInput.addEventListener("input", () => setTargetSize("width", el.widthInput.value));
@@ -162,36 +378,38 @@
         blackBit: 1
       },
       render: {
-        threshold: 156,
+        threshold: 150,
         dither: "threshold",
         invert: false,
-        fontScale: 1
+        fontScale: 1,
+        rasterScale: RASTER_SCALE
       },
       pages: [
-        createPage("dashboard", {
-          id: "page_home",
-          title: "今日看板",
-          body: DEFAULT_BODY.dashboard,
-          footer: "InkScreen"
-        }),
-        createPage("agenda", {
-          id: "page_agenda",
-          title: "课程表",
-          body: DEFAULT_BODY.agenda,
-          footer: "旋钮翻页，按下确认"
-        })
+        createPage("today", { id: "page_home" }),
+        createPage("schedule", { id: "page_agenda" }),
+        createPage("weather", { id: "page_weather" }),
+        createPage("focus", { id: "page_focus" }),
+        createPage("countdown", { id: "page_countdown" }),
+        createPage("habit", { id: "page_habit" }),
+        createPage("word", { id: "page_word" }),
+        createPage("notice", { id: "page_notice" })
       ]
     };
   }
 
-  function createPage(kind = "dashboard", seed = {}) {
+  function createPage(template = "today", seed = {}) {
+    const normalized = normalizeTemplate(template);
+    const def = TEMPLATE_DEFS[normalized];
+    const params = { ...def.defaults, ...(seed.params || {}) };
     return {
       id: seed.id || createId("page"),
-      title: seed.title || KIND_LABELS[kind] || "页面",
-      kind,
+      title: seed.title || def.title,
+      kind: def.kind,
+      template: normalized,
       durationSec: seed.durationSec || 0,
-      body: seed.body ?? DEFAULT_BODY[kind] ?? "",
-      footer: seed.footer ?? "",
+      params,
+      body: seed.body ?? serializeParams(normalized, params),
+      footer: seed.footer ?? def.footer,
       imageDataUrl: seed.imageDataUrl || ""
     };
   }
@@ -209,30 +427,65 @@
       ...(state.model.target || {})
     };
     state.model.render = {
-      threshold: 156,
+      threshold: 150,
       dither: "threshold",
       invert: false,
       fontScale: 1,
+      rasterScale: RASTER_SCALE,
       ...(state.model.render || {})
     };
     if (!Array.isArray(state.model.pages) || state.model.pages.length === 0) {
-      state.model.pages = [createPage("dashboard")];
+      state.model.pages = [createPage("today")];
     }
-    state.model.pages = state.model.pages.map((page) => ({
-      ...createPage(page.kind || "dashboard"),
+    state.model.pages = state.model.pages.map((page) => normalizePage(page));
+  }
+
+  function normalizePage(page) {
+    const template = normalizeTemplate(page.template || page.kind);
+    const def = TEMPLATE_DEFS[template];
+    const migratedParams = page.params
+      ? { ...def.defaults, ...page.params }
+      : { ...def.defaults, ...paramsFromBody(template, page.body || "") };
+    return {
+      ...createPage(template),
       ...page,
       id: page.id || createId("page"),
-      kind: page.kind || "dashboard"
-    }));
+      title: page.title || def.title,
+      kind: def.kind,
+      template,
+      params: migratedParams,
+      body: page.body || serializeParams(template, migratedParams),
+      footer: page.footer ?? def.footer
+    };
+  }
+
+  function normalizeTemplate(value) {
+    if (TEMPLATE_DEFS[value]) {
+      return value;
+    }
+    const legacyMap = {
+      dashboard: "today",
+      agenda: "schedule",
+      checklist: "habit",
+      quote: "quote",
+      image: "image"
+    };
+    return legacyMap[value] || "today";
   }
 
   function getActivePage() {
     return state.model.pages.find((page) => page.id === state.activePageId) || state.model.pages[0];
   }
 
+  function getPageParams(page) {
+    const def = TEMPLATE_DEFS[normalizeTemplate(page.template)];
+    return { ...def.defaults, ...(page.params || {}) };
+  }
+
   function syncFormFromState() {
     const page = getActivePage();
     el.pageTitleInput.value = page.title || "";
+    el.templateInput.value = normalizeTemplate(page.template);
     el.bodyInput.value = page.body || "";
     el.footerInput.value = page.footer || "";
     el.widthInput.value = state.model.target.width;
@@ -242,15 +495,75 @@
     el.invertInput.checked = Boolean(state.model.render.invert);
     const presetKey = `${state.model.target.width}x${state.model.target.height}`;
     el.presetInput.value = PRESETS.has(presetKey) ? presetKey : "custom";
-    syncKindButtons();
+    renderParamEditor();
+    syncTemplateVisibility();
   }
 
-  function syncKindButtons() {
+  function syncTemplateVisibility() {
     const page = getActivePage();
-    el.kindButtons.forEach((button) => {
-      button.classList.toggle("active", button.dataset.kind === page.kind);
+    el.imageField.classList.toggle("is-hidden", normalizeTemplate(page.template) !== "image");
+  }
+
+  function renderParamEditor() {
+    const page = getActivePage();
+    const template = normalizeTemplate(page.template);
+    const def = TEMPLATE_DEFS[template];
+    const params = getPageParams(page);
+    el.paramEditor.replaceChildren();
+
+    def.fields.forEach((config) => {
+      const label = document.createElement("label");
+      label.className = `field${config.wide ? " wide" : ""}`;
+
+      const title = document.createElement("span");
+      title.textContent = config.label;
+
+      const input = createParamInput(config, params[config.name]);
+      input.dataset.param = config.name;
+      input.addEventListener("input", handleParamInput);
+      input.addEventListener("change", handleParamInput);
+
+      label.append(title, input);
+      el.paramEditor.append(label);
     });
-    el.imageField.classList.toggle("is-hidden", page.kind !== "image");
+  }
+
+  function createParamInput(config, value) {
+    let input;
+    if (config.type === "textarea") {
+      input = document.createElement("textarea");
+      input.rows = 4;
+      input.spellcheck = false;
+    } else {
+      input = document.createElement("input");
+      input.type = config.type === "number" ? "number" : "text";
+      if (input.type === "number") {
+        input.step = "1";
+      }
+    }
+    input.value = value ?? "";
+    return input;
+  }
+
+  function handleParamInput(event) {
+    const page = getActivePage();
+    const key = event.target.dataset.param;
+    page.params = { ...getPageParams(page), [key]: event.target.value };
+    page.body = serializeParams(page.template, page.params);
+    el.bodyInput.value = page.body;
+    renderPageList();
+    drawPreviewAndMetrics();
+    persistState();
+  }
+
+  function handleBodyInput() {
+    const page = getActivePage();
+    page.body = el.bodyInput.value;
+    page.params = { ...getPageParams(page), ...paramsFromBody(page.template, page.body) };
+    renderParamEditor();
+    renderPageList();
+    drawPreviewAndMetrics();
+    persistState();
   }
 
   function renderPageList() {
@@ -268,7 +581,7 @@
 
       const kind = document.createElement("span");
       kind.className = "page-kind";
-      kind.textContent = KIND_LABELS[page.kind] || page.kind;
+      kind.textContent = TEMPLATE_DEFS[normalizeTemplate(page.template)].label;
 
       button.append(title, kind);
       el.pageList.append(button);
@@ -285,9 +598,9 @@
 
   function addPage() {
     const currentIndex = state.model.pages.findIndex((page) => page.id === state.activePageId);
-    const page = createPage("dashboard", {
-      title: `新页面 ${state.model.pages.length + 1}`,
-      body: DEFAULT_BODY.dashboard
+    const nextTemplate = TEMPLATE_ORDER[(state.model.pages.length + 1) % TEMPLATE_ORDER.length];
+    const page = createPage(nextTemplate, {
+      title: `${TEMPLATE_DEFS[nextTemplate].title} ${state.model.pages.length + 1}`
     });
     state.model.pages.splice(Math.max(0, currentIndex + 1), 0, page);
     selectPage(page.id);
@@ -326,17 +639,34 @@
     persistState();
   }
 
-  function setPageKind(kind) {
+  function setTemplate(template) {
     const page = getActivePage();
-    page.kind = kind;
-    if (!page.body.trim()) {
-      page.body = DEFAULT_BODY[kind] || "";
-      el.bodyInput.value = page.body;
-    }
-    syncKindButtons();
+    const normalized = normalizeTemplate(template);
+    const def = TEMPLATE_DEFS[normalized];
+    page.template = normalized;
+    page.kind = def.kind;
+    page.title = page.title || def.title;
+    page.footer = page.footer || def.footer;
+    page.params = { ...def.defaults, ...paramsFromBody(normalized, page.body || "") };
+    page.body = serializeParams(normalized, page.params);
+    syncFormFromState();
     renderPageList();
     drawPreviewAndMetrics();
     persistState();
+  }
+
+  function fillSampleParams() {
+    const page = getActivePage();
+    const def = TEMPLATE_DEFS[normalizeTemplate(page.template)];
+    page.params = { ...def.defaults };
+    page.title = def.title;
+    page.footer = def.footer;
+    page.body = serializeParams(page.template, page.params);
+    syncFormFromState();
+    renderPageList();
+    drawPreviewAndMetrics();
+    persistState();
+    logLine(`已填入 ${def.label} 示例。`);
   }
 
   function applyPreset() {
@@ -376,10 +706,10 @@
     reader.addEventListener("load", () => {
       const page = getActivePage();
       page.imageDataUrl = String(reader.result || "");
+      page.template = "image";
       page.kind = "image";
       page.title = page.title || file.name.replace(/\.[^.]+$/, "");
-      el.pageTitleInput.value = page.title;
-      syncKindButtons();
+      syncFormFromState();
       renderPageList();
       drawPreviewAndMetrics();
       persistState();
@@ -408,83 +738,113 @@
     const render = state.model.render;
     const width = clamp(Math.round(target.width), 64, 1200);
     const height = clamp(Math.round(target.height), 64, 1200);
+    const scale = clamp(Math.round(render.rasterScale || RASTER_SCALE), 2, 4);
 
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    const source = document.createElement("canvas");
+    source.width = width * scale;
+    source.height = height * scale;
+    const ctx = source.getContext("2d", { willReadFrequently: true });
     ctx.save();
+    ctx.scale(scale, scale);
     ctx.imageSmoothingEnabled = true;
+    ctx.textBaseline = "alphabetic";
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, width, height);
     ctx.fillStyle = "#111111";
     ctx.strokeStyle = "#111111";
     ctx.lineWidth = 1;
+    drawPage(ctx, page, width, height, getCanvasSizes(width, height));
+    ctx.restore();
 
-    const size = getCanvasSizes(width, height);
-    if (page.kind === "agenda") {
+    canvas.width = width;
+    canvas.height = height;
+    rasterizeSourceToCanvas(source, canvas, width, height, scale, render);
+  }
+
+  function drawPage(ctx, page, width, height, size) {
+    const template = normalizeTemplate(page.template);
+    if (template === "schedule") {
       drawAgenda(ctx, page, width, height, size);
-    } else if (page.kind === "checklist") {
-      drawChecklist(ctx, page, width, height, size);
-    } else if (page.kind === "quote") {
+    } else if (template === "habit") {
+      drawHabit(ctx, page, width, height, size);
+    } else if (template === "quote") {
       drawQuote(ctx, page, width, height, size);
-    } else if (page.kind === "image") {
+    } else if (template === "image") {
       drawImagePage(ctx, page, width, height, size);
+    } else if (template === "weather") {
+      drawWeather(ctx, page, width, height, size);
+    } else if (template === "focus") {
+      drawFocus(ctx, page, width, height, size);
+    } else if (template === "countdown") {
+      drawCountdown(ctx, page, width, height, size);
+    } else if (template === "notice") {
+      drawNotice(ctx, page, width, height, size);
+    } else if (template === "device") {
+      drawDevice(ctx, page, width, height, size);
+    } else if (template === "word") {
+      drawWord(ctx, page, width, height, size);
     } else {
-      drawDashboard(ctx, page, width, height, size);
+      drawToday(ctx, page, width, height, size);
     }
     drawFooter(ctx, page, width, height, size);
-    ctx.restore();
-    applyMono(ctx, width, height, render);
   }
 
   function getCanvasSizes(width, height) {
     const minSide = Math.min(width, height);
     const scale = state.model.render.fontScale || 1;
     return {
-      margin: Math.max(6, Math.round(minSide * 0.07)),
-      gap: Math.max(4, Math.round(minSide * 0.035)),
-      title: Math.max(13, Math.round(minSide * 0.145 * scale)),
-      body: Math.max(10, Math.round(minSide * 0.105 * scale)),
-      small: Math.max(8, Math.round(minSide * 0.078 * scale))
+      margin: Math.max(7, Math.round(minSide * 0.07)),
+      gap: Math.max(4, Math.round(minSide * 0.036)),
+      title: Math.max(15, Math.round(minSide * 0.15 * scale)),
+      body: Math.max(12, Math.round(minSide * 0.105 * scale)),
+      small: Math.max(9, Math.round(minSide * 0.082 * scale)),
+      micro: Math.max(8, Math.round(minSide * 0.07 * scale))
     };
   }
 
   function drawHeader(ctx, page, width, size) {
     const y = size.margin + size.title;
-    ctx.font = `800 ${size.title}px system-ui, sans-serif`;
+    setFont(ctx, 800, size.title);
     drawFitText(ctx, page.title || "InkScreen", size.margin, y, width - size.margin * 2);
     ctx.beginPath();
-    ctx.moveTo(size.margin, y + Math.round(size.gap * 0.9));
-    ctx.lineTo(width - size.margin, y + Math.round(size.gap * 0.9));
+    ctx.moveTo(size.margin, snap(y + size.gap));
+    ctx.lineTo(width - size.margin, snap(y + size.gap));
     ctx.stroke();
     return y + size.gap * 2;
   }
 
-  function drawDashboard(ctx, page, width, height, size) {
+  function drawToday(ctx, page, width, height, size) {
     const yStart = drawHeader(ctx, page, width, size);
-    const metrics = parseMetricLines(page.body || DEFAULT_BODY.dashboard).slice(0, 6);
-    const columns = width > height * 1.25 ? 2 : 1;
-    const rows = Math.ceil(metrics.length / columns) || 1;
-    const bottomLimit = height - size.margin - size.small * 1.8;
-    const availableH = Math.max(20, bottomLimit - yStart);
-    const cellW = (width - size.margin * 2 - size.gap * (columns - 1)) / columns;
-    const cellH = Math.max(20, (availableH - size.gap * (rows - 1)) / rows);
+    const params = getPageParams(page);
+    const metrics = [
+      { label: "天气", value: params.weather, note: params.note },
+      { label: "待办", value: params.todo, note: "items" },
+      { label: "下一项", value: params.next, note: "" },
+      { label: "电量", value: params.battery, note: "battery" }
+    ];
+    drawMetricGrid(ctx, metrics, size.margin, yStart, width - size.margin * 2, height - yStart - size.margin - size.small * 1.7, size);
+  }
 
+  function drawMetricGrid(ctx, metrics, x, y, width, height, size) {
+    const columns = width > height * 1.2 ? 2 : 1;
+    const rows = Math.ceil(metrics.length / columns) || 1;
+    const cellW = (width - size.gap * (columns - 1)) / columns;
+    const cellH = Math.max(24, (height - size.gap * (rows - 1)) / rows);
     metrics.forEach((metric, index) => {
       const col = index % columns;
       const row = Math.floor(index / columns);
-      const x = size.margin + col * (cellW + size.gap);
-      const y = yStart + row * (cellH + size.gap);
-      ctx.strokeRect(x, y, cellW, cellH);
-      ctx.fillRect(x, y, Math.max(2, Math.round(size.gap * 0.5)), cellH);
-      ctx.font = `700 ${size.small}px system-ui, sans-serif`;
-      drawFitText(ctx, metric.label, x + size.gap, y + size.small + 3, cellW - size.gap * 2);
-      ctx.font = `900 ${Math.max(size.body + 3, Math.round(cellH * 0.38))}px system-ui, sans-serif`;
-      drawFitText(ctx, metric.value, x + size.gap, y + cellH - size.small - 3, cellW - size.gap * 2);
+      const cellX = x + col * (cellW + size.gap);
+      const cellY = y + row * (cellH + size.gap);
+      strokeRect(ctx, cellX, cellY, cellW, cellH);
+      ctx.fillRect(Math.round(cellX), Math.round(cellY), Math.max(2, Math.round(size.gap * 0.55)), Math.round(cellH));
+      setFont(ctx, 700, size.small);
+      drawFitText(ctx, metric.label, cellX + size.gap, cellY + size.small + 3, cellW - size.gap * 2);
+      setFont(ctx, 900, Math.max(size.body + 4, Math.round(cellH * 0.36)));
+      drawFitText(ctx, metric.value, cellX + size.gap, cellY + cellH - size.small - 2, cellW - size.gap * 2);
       if (metric.note) {
-        ctx.font = `600 ${size.small}px system-ui, sans-serif`;
-        ctx.fillStyle = "#666666";
-        drawFitText(ctx, metric.note, x + size.gap, y + cellH - 4, cellW - size.gap * 2);
+        setFont(ctx, 600, size.micro);
+        ctx.fillStyle = "#555555";
+        drawFitText(ctx, metric.note, cellX + size.gap, cellY + cellH - 3, cellW - size.gap * 2);
         ctx.fillStyle = "#111111";
       }
     });
@@ -492,51 +852,57 @@
 
   function drawAgenda(ctx, page, width, height, size) {
     let y = drawHeader(ctx, page, width, size);
-    const items = parseAgendaLines(page.body || DEFAULT_BODY.agenda);
+    const items = parseAgendaLines(getPageParams(page).items || page.body).slice(0, 5);
     const bottomLimit = height - size.margin - size.small * 1.8;
-    const rowH = Math.max(size.body + 7, Math.floor((bottomLimit - y) / Math.max(1, items.length)));
-    const timeW = Math.min(Math.max(42, width * 0.24), 68);
+    const rowH = Math.max(size.body + 8, Math.floor((bottomLimit - y) / Math.max(1, items.length)));
+    const timeW = Math.min(Math.max(44, width * 0.25), 72);
 
     items.forEach((item) => {
       if (y + rowH > bottomLimit + 2) {
         return;
       }
-      ctx.strokeRect(size.margin, y, width - size.margin * 2, rowH - 2);
-      ctx.font = `800 ${size.body}px system-ui, sans-serif`;
+      strokeRect(ctx, size.margin, y, width - size.margin * 2, rowH - 2);
+      setFont(ctx, 900, size.body);
       drawFitText(ctx, item.time, size.margin + size.gap, y + size.body + 3, timeW - size.gap);
-      ctx.font = `700 ${size.body}px system-ui, sans-serif`;
+      setFont(ctx, 800, size.body);
       drawFitText(ctx, item.text, size.margin + timeW, y + size.body + 3, width - size.margin * 2 - timeW - size.gap);
       if (item.meta) {
-        ctx.font = `600 ${size.small}px system-ui, sans-serif`;
-        ctx.fillStyle = "#666666";
-        drawFitText(ctx, item.meta, size.margin + timeW, y + rowH - 6, width - size.margin * 2 - timeW - size.gap);
+        setFont(ctx, 650, size.micro);
+        ctx.fillStyle = "#555555";
+        drawFitText(ctx, item.meta, size.margin + timeW, y + rowH - 5, width - size.margin * 2 - timeW - size.gap);
         ctx.fillStyle = "#111111";
       }
       y += rowH;
     });
   }
 
-  function drawChecklist(ctx, page, width, height, size) {
+  function drawHabit(ctx, page, width, height, size) {
     let y = drawHeader(ctx, page, width, size);
-    const items = parseChecklistLines(page.body || DEFAULT_BODY.checklist);
+    const params = getPageParams(page);
+    const items = parseHabitLines(params.habits).slice(0, 5);
     const bottomLimit = height - size.margin - size.small * 1.8;
-    const rowH = Math.max(size.body + 8, Math.floor((bottomLimit - y) / Math.max(1, items.length)));
-    const box = clamp(Math.round(size.body * 0.85), 9, 16);
+    const rowH = Math.max(size.body + 8, Math.floor((bottomLimit - y - size.body) / Math.max(1, items.length)));
+    const box = clamp(Math.round(size.body * 0.9), 10, 17);
+
+    setFont(ctx, 800, size.small);
+    drawFitText(ctx, params.streak || "", size.margin, bottomLimit, width - size.margin * 2);
 
     items.forEach((item) => {
-      if (y + rowH > bottomLimit + 2) {
+      if (y + rowH > bottomLimit) {
         return;
       }
       const boxY = y + Math.round((rowH - box) / 2);
-      ctx.strokeRect(size.margin, boxY, box, box);
+      strokeRect(ctx, size.margin, boxY, box, box);
       if (item.checked) {
+        ctx.lineWidth = 1.3;
         ctx.beginPath();
         ctx.moveTo(size.margin + 3, boxY + Math.round(box * 0.55));
         ctx.lineTo(size.margin + Math.round(box * 0.42), boxY + box - 3);
         ctx.lineTo(size.margin + box - 2, boxY + 3);
         ctx.stroke();
+        ctx.lineWidth = 1;
       }
-      ctx.font = `700 ${size.body}px system-ui, sans-serif`;
+      setFont(ctx, 800, size.body);
       drawFitText(ctx, item.text, size.margin + box + size.gap, y + Math.round((rowH + size.body) / 2) - 2, width - size.margin * 2 - box - size.gap);
       y += rowH;
     });
@@ -544,22 +910,28 @@
 
   function drawQuote(ctx, page, width, height, size) {
     let y = drawHeader(ctx, page, width, size);
-    const bottomLimit = height - size.margin - size.small * 2.1;
+    const params = getPageParams(page);
     const bodyFont = Math.max(size.body + 2, Math.round(Math.min(width, height) * 0.13));
-    ctx.font = `800 ${bodyFont}px system-ui, sans-serif`;
-    const lineHeight = Math.round(bodyFont * 1.26);
+    setFont(ctx, 850, bodyFont);
     y += size.gap;
-    drawWrappedText(ctx, page.body || DEFAULT_BODY.quote, size.margin, y, width - size.margin * 2, lineHeight, bottomLimit);
+    drawWrappedText(ctx, params.quote || "", size.margin, y, width - size.margin * 2, Math.round(bodyFont * 1.28), height - size.margin - size.small * 2);
+    if (params.by) {
+      setFont(ctx, 700, size.small);
+      ctx.textAlign = "right";
+      drawFitText(ctx, `- ${params.by}`, width - size.margin, height - size.margin - size.small * 1.2, width - size.margin * 2);
+      ctx.textAlign = "left";
+    }
   }
 
   function drawImagePage(ctx, page, width, height, size) {
+    const params = getPageParams(page);
     const yStart = drawHeader(ctx, page, width, size);
     const bottomLimit = height - size.margin - size.small * 1.8;
     const areaX = size.margin;
     const areaY = yStart;
     const areaW = width - size.margin * 2;
     const areaH = Math.max(20, bottomLimit - yStart);
-    ctx.strokeRect(areaX, areaY, areaW, areaH);
+    strokeRect(ctx, areaX, areaY, areaW, areaH);
 
     const img = getImage(page.imageDataUrl);
     if (img && img.complete && img.naturalWidth > 0) {
@@ -572,20 +944,122 @@
       return;
     }
 
-    ctx.font = `700 ${size.body}px system-ui, sans-serif`;
+    setFont(ctx, 750, size.body);
     ctx.fillStyle = "#555555";
-    drawWrappedText(ctx, page.body || DEFAULT_BODY.image, areaX + size.gap, areaY + size.body + size.gap, areaW - size.gap * 2, Math.round(size.body * 1.3), areaY + areaH - size.gap);
+    drawWrappedText(ctx, params.caption || "", areaX + size.gap, areaY + size.body + size.gap, areaW - size.gap * 2, Math.round(size.body * 1.3), areaY + areaH - size.gap);
     ctx.fillStyle = "#111111";
+  }
+
+  function drawWeather(ctx, page, width, height, size) {
+    const p = getPageParams(page);
+    let y = drawHeader(ctx, page, width, size);
+    setFont(ctx, 800, size.small);
+    drawFitText(ctx, `${p.city}  ${p.condition}`, size.margin, y + size.small, width - size.margin * 2);
+    setFont(ctx, 950, Math.max(31, Math.round(Math.min(width, height) * 0.34)));
+    drawFitText(ctx, p.temp, size.margin, y + size.small + Math.max(31, Math.round(Math.min(width, height) * 0.34)), width * 0.58);
+    const rightX = width * 0.58;
+    setFont(ctx, 760, size.body);
+    drawFitText(ctx, p.highLow, rightX, y + size.body + size.gap, width - rightX - size.margin);
+    drawFitText(ctx, `湿度 ${p.humidity}`, rightX, y + size.body * 2.3 + size.gap, width - rightX - size.margin);
+    drawFitText(ctx, p.wind, rightX, y + size.body * 3.6 + size.gap, width - rightX - size.margin);
+    setFont(ctx, 800, size.small);
+    drawFitText(ctx, p.advice, size.margin, height - size.margin - size.small * 1.5, width - size.margin * 2);
+  }
+
+  function drawFocus(ctx, page, width, height, size) {
+    const p = getPageParams(page);
+    let y = drawHeader(ctx, page, width, size);
+    const progress = clamp(Number(p.progress) || 0, 0, 100);
+    setFont(ctx, 850, size.body + 3);
+    drawWrappedText(ctx, p.task, size.margin, y + size.body + 2, width - size.margin * 2, Math.round((size.body + 3) * 1.2), y + size.body * 3.2);
+    setFont(ctx, 950, Math.max(30, Math.round(Math.min(width, height) * 0.3)));
+    drawFitText(ctx, `${p.minutes}`, size.margin, height - size.margin - size.small * 2.2, width * 0.42);
+    setFont(ctx, 850, size.body);
+    drawFitText(ctx, "min", size.margin + width * 0.28, height - size.margin - size.small * 2.2, width * 0.18);
+    const barX = width * 0.48;
+    const barY = height - size.margin - size.body * 2.6;
+    const barW = width - barX - size.margin;
+    const barH = Math.max(10, size.body);
+    strokeRect(ctx, barX, barY, barW, barH);
+    ctx.fillRect(Math.round(barX), Math.round(barY), Math.round(barW * progress / 100), Math.round(barH));
+    setFont(ctx, 760, size.small);
+    drawFitText(ctx, `${progress}%  ${p.next}`, barX, barY + barH + size.small + 3, barW);
+  }
+
+  function drawCountdown(ctx, page, width, height, size) {
+    const p = getPageParams(page);
+    let y = drawHeader(ctx, page, width, size);
+    setFont(ctx, 850, size.body + 2);
+    drawFitText(ctx, p.event, size.margin, y + size.body + 3, width - size.margin * 2);
+    const big = Math.max(42, Math.round(Math.min(width, height) * 0.42));
+    setFont(ctx, 950, big);
+    drawFitText(ctx, String(p.left), size.margin, y + big + size.body, width * 0.48);
+    setFont(ctx, 850, size.body);
+    drawFitText(ctx, "days", size.margin + width * 0.36, y + big + size.body - 4, width * 0.2);
+    setFont(ctx, 760, size.small);
+    drawFitText(ctx, p.date, width * 0.58, y + size.body * 2, width * 0.38);
+    drawWrappedText(ctx, p.note, width * 0.58, y + size.body * 3.4, width * 0.36, Math.round(size.small * 1.25), height - size.margin - size.small * 2);
+  }
+
+  function drawNotice(ctx, page, width, height, size) {
+    const p = getPageParams(page);
+    let y = drawHeader(ctx, page, width, size);
+    setFont(ctx, 850, size.small);
+    strokeRect(ctx, size.margin, y, Math.min(52, width * 0.26), size.body + 4);
+    drawFitText(ctx, p.tag, size.margin + size.gap, y + size.body, Math.min(52, width * 0.26) - size.gap * 2);
+    y += size.body + size.gap * 2;
+    setFont(ctx, 850, size.body + 2);
+    drawWrappedText(ctx, p.message, size.margin, y + size.body, width - size.margin * 2, Math.round((size.body + 2) * 1.25), height - size.margin - size.body * 2.6);
+    setFont(ctx, 760, size.small);
+    drawFitText(ctx, p.action, size.margin, height - size.margin - size.small * 1.6, width - size.margin * 2);
+  }
+
+  function drawDevice(ctx, page, width, height, size) {
+    const p = getPageParams(page);
+    const yStart = drawHeader(ctx, page, width, size);
+    const items = [
+      { label: "Wi-Fi", value: p.wifi },
+      { label: "IP", value: p.ip },
+      { label: "电量", value: p.battery },
+      { label: "状态", value: p.status },
+      { label: "更新", value: p.updated }
+    ];
+    drawMetricGrid(ctx, items, size.margin, yStart, width - size.margin * 2, height - yStart - size.margin - size.small * 1.6, size);
+  }
+
+  function drawWord(ctx, page, width, height, size) {
+    const p = getPageParams(page);
+    let y = drawHeader(ctx, page, width, size);
+    setFont(ctx, 950, Math.max(28, Math.round(Math.min(width, height) * 0.26)));
+    drawFitText(ctx, p.word, size.margin, y + Math.max(28, Math.round(Math.min(width, height) * 0.26)), width - size.margin * 2);
+    setFont(ctx, 700, size.small);
+    drawFitText(ctx, p.phonetic, size.margin, y + Math.max(28, Math.round(Math.min(width, height) * 0.26)) + size.small + 5, width - size.margin * 2);
+    setFont(ctx, 850, size.body);
+    drawFitText(ctx, p.meaning, size.margin, height - size.margin - size.body * 2.2, width - size.margin * 2);
+    setFont(ctx, 700, size.small);
+    drawFitText(ctx, p.example, size.margin, height - size.margin - size.small * 1.1, width - size.margin * 2);
   }
 
   function drawFooter(ctx, page, width, height, size) {
     if (!page.footer) {
       return;
     }
-    ctx.font = `700 ${size.small}px system-ui, sans-serif`;
+    setFont(ctx, 720, size.micro);
     ctx.textAlign = "right";
     drawFitText(ctx, page.footer, width - size.margin, height - size.margin, width - size.margin * 2);
     ctx.textAlign = "left";
+  }
+
+  function setFont(ctx, weight, size) {
+    ctx.font = `${weight} ${Math.round(size)}px ${FONT_STACK}`;
+  }
+
+  function strokeRect(ctx, x, y, width, height) {
+    ctx.strokeRect(snap(x), snap(y), Math.round(width), Math.round(height));
+  }
+
+  function snap(value) {
+    return Math.round(value) + 0.5;
   }
 
   function drawFitText(ctx, text, x, y, maxWidth) {
@@ -636,6 +1110,81 @@
     return lines;
   }
 
+  function rasterizeSourceToCanvas(source, canvas, width, height, scale, render) {
+    const sourceCtx = source.getContext("2d", { willReadFrequently: true });
+    const sourceData = sourceCtx.getImageData(0, 0, source.width, source.height).data;
+    const threshold = clamp(Number(render.threshold) || 150, 0, 255);
+    const gray = new Float32Array(width * height);
+
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        let sum = 0;
+        for (let sy = 0; sy < scale; sy += 1) {
+          for (let sx = 0; sx < scale; sx += 1) {
+            const sourceIndex = ((y * scale + sy) * source.width + (x * scale + sx)) * 4;
+            sum += sourceData[sourceIndex] * 0.299 + sourceData[sourceIndex + 1] * 0.587 + sourceData[sourceIndex + 2] * 0.114;
+          }
+        }
+        let value = sum / (scale * scale);
+        if (render.invert) {
+          value = 255 - value;
+        }
+        gray[y * width + x] = value;
+      }
+    }
+
+    const mono = render.dither === "floyd"
+      ? ditherGray(gray, width, height, threshold)
+      : thresholdGray(gray, threshold);
+
+    const targetCtx = canvas.getContext("2d", { willReadFrequently: true });
+    const targetData = targetCtx.createImageData(width, height);
+    for (let i = 0; i < mono.length; i += 1) {
+      const value = mono[i] ? 0 : 255;
+      const dataIndex = i * 4;
+      targetData.data[dataIndex] = value;
+      targetData.data[dataIndex + 1] = value;
+      targetData.data[dataIndex + 2] = value;
+      targetData.data[dataIndex + 3] = 255;
+    }
+    targetCtx.putImageData(targetData, 0, 0);
+  }
+
+  function thresholdGray(gray, threshold) {
+    const mono = new Uint8Array(gray.length);
+    for (let i = 0; i < gray.length; i += 1) {
+      mono[i] = gray[i] < threshold ? 1 : 0;
+    }
+    return mono;
+  }
+
+  function ditherGray(gray, width, height, threshold) {
+    const work = new Float32Array(gray);
+    const mono = new Uint8Array(gray.length);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const index = y * width + x;
+        const oldValue = work[index];
+        const black = oldValue < threshold;
+        const newValue = black ? 0 : 255;
+        const error = oldValue - newValue;
+        mono[index] = black ? 1 : 0;
+        distributeError(work, width, height, x + 1, y, error * 7 / 16);
+        distributeError(work, width, height, x - 1, y + 1, error * 3 / 16);
+        distributeError(work, width, height, x, y + 1, error * 5 / 16);
+        distributeError(work, width, height, x + 1, y + 1, error * 1 / 16);
+      }
+    }
+    return mono;
+  }
+
+  function distributeError(gray, width, height, x, y, error) {
+    if (x < 0 || x >= width || y < 0 || y >= height) {
+      return;
+    }
+    gray[y * width + x] += error;
+  }
+
   function getImage(src) {
     if (!src) {
       return null;
@@ -648,66 +1197,6 @@
     image.src = src;
     state.imageCache.set(src, image);
     return image;
-  }
-
-  function applyMono(ctx, width, height, render) {
-    const threshold = clamp(Number(render.threshold) || 156, 0, 255);
-    const imageData = ctx.getImageData(0, 0, width, height);
-    const data = imageData.data;
-
-    if (render.dither === "floyd") {
-      const gray = new Float32Array(width * height);
-      for (let i = 0, pixel = 0; i < data.length; i += 4, pixel += 1) {
-        let value = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-        if (render.invert) {
-          value = 255 - value;
-        }
-        gray[pixel] = value;
-      }
-
-      for (let y = 0; y < height; y += 1) {
-        for (let x = 0; x < width; x += 1) {
-          const index = y * width + x;
-          const oldValue = gray[index];
-          const newValue = oldValue < threshold ? 0 : 255;
-          const error = oldValue - newValue;
-          gray[index] = newValue;
-          distributeError(gray, width, height, x + 1, y, error * 7 / 16);
-          distributeError(gray, width, height, x - 1, y + 1, error * 3 / 16);
-          distributeError(gray, width, height, x, y + 1, error * 5 / 16);
-          distributeError(gray, width, height, x + 1, y + 1, error * 1 / 16);
-        }
-      }
-
-      for (let i = 0, pixel = 0; i < data.length; i += 4, pixel += 1) {
-        const value = gray[pixel] < 128 ? 0 : 255;
-        data[i] = value;
-        data[i + 1] = value;
-        data[i + 2] = value;
-        data[i + 3] = 255;
-      }
-    } else {
-      for (let i = 0; i < data.length; i += 4) {
-        let value = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-        if (render.invert) {
-          value = 255 - value;
-        }
-        const mono = value < threshold ? 0 : 255;
-        data[i] = mono;
-        data[i + 1] = mono;
-        data[i + 2] = mono;
-        data[i + 3] = 255;
-      }
-    }
-
-    ctx.putImageData(imageData, 0, 0);
-  }
-
-  function distributeError(gray, width, height, x, y, error) {
-    if (x < 0 || x >= width || y < 0 || y >= height) {
-      return;
-    }
-    gray[y * width + x] += error;
   }
 
   function packCanvas(canvas) {
@@ -728,7 +1217,6 @@
       }
     }
 
-    const crc = crc32(bytes);
     return {
       bytes,
       meta: {
@@ -737,7 +1225,7 @@
         height,
         format: "raw-1bpp-msb",
         bytes: bytes.length,
-        crc32: crc
+        crc32: crc32(bytes)
       }
     };
   }
@@ -761,10 +1249,14 @@
     };
     const pages = state.model.pages.map((page, index) => {
       const bitmap = renderPageBitmap(page);
+      const template = normalizeTemplate(page.template);
+      const params = getPageParams(page);
       return {
         id: page.id,
         title: page.title || `Page ${index + 1}`,
-        kind: page.kind,
+        kind: TEMPLATE_DEFS[template].kind,
+        template,
+        params,
         order: index,
         durationSec: page.durationSec || 0,
         blocks: buildBlocks(page),
@@ -791,27 +1283,127 @@
   }
 
   function buildBlocks(page) {
+    const template = normalizeTemplate(page.template);
+    const params = getPageParams(page);
     const heading = { type: "heading", text: page.title || "" };
-    if (page.kind === "agenda") {
-      return [heading, { type: "agenda", items: parseAgendaLines(page.body) }];
+    if (template === "schedule") {
+      return [heading, { type: "agenda", items: parseAgendaLines(params.items) }];
     }
-    if (page.kind === "checklist") {
-      return [heading, { type: "checklist", items: parseChecklistLines(page.body) }];
+    if (template === "habit") {
+      return [heading, { type: "checklist", items: parseHabitLines(params.habits) }, { type: "metric", label: "连续", value: params.streak, note: "" }];
     }
-    if (page.kind === "quote") {
-      return [heading, { type: "quote", text: page.body || "", by: page.footer || "" }];
+    if (template === "quote") {
+      return [heading, { type: "quote", text: params.quote, by: params.by }];
     }
-    if (page.kind === "image") {
+    if (template === "image") {
       return [
         heading,
         { type: "image", name: page.imageDataUrl ? "uploaded-image" : "placeholder", fit: "contain" },
-        { type: "paragraph", text: page.body || "" }
+        { type: "paragraph", text: params.caption }
       ];
+    }
+    if (template === "weather") {
+      return [
+        heading,
+        { type: "metric", label: "城市", value: params.city, note: params.condition },
+        { type: "metric", label: "温度", value: params.temp, note: params.highLow },
+        { type: "metric", label: "湿度", value: params.humidity, note: params.wind },
+        { type: "paragraph", text: params.advice }
+      ];
+    }
+    if (template === "focus") {
+      return [
+        heading,
+        { type: "metric", label: "任务", value: params.task, note: params.next },
+        { type: "metric", label: "时间", value: `${params.minutes} min`, note: `${params.progress}%` }
+      ];
+    }
+    if (template === "countdown") {
+      return [
+        heading,
+        { type: "metric", label: params.event, value: `${params.left} days`, note: params.date },
+        { type: "paragraph", text: params.note }
+      ];
+    }
+    if (template === "notice") {
+      return [heading, { type: "paragraph", text: params.message }, { type: "metric", label: params.tag, value: params.action, note: "" }];
+    }
+    if (template === "device") {
+      return [
+        heading,
+        { type: "metric", label: "Wi-Fi", value: params.wifi, note: params.ip },
+        { type: "metric", label: "电量", value: params.battery, note: params.status },
+        { type: "paragraph", text: params.updated }
+      ];
+    }
+    if (template === "word") {
+      return [heading, { type: "metric", label: params.word, value: params.meaning, note: params.phonetic }, { type: "paragraph", text: params.example }];
     }
     return [
       heading,
-      ...parseMetricLines(page.body).map((metric) => ({ type: "metric", ...metric }))
+      { type: "metric", label: "天气", value: params.weather, note: params.note },
+      { type: "metric", label: "待办", value: params.todo, note: "" },
+      { type: "metric", label: "下一项", value: params.next, note: "" },
+      { type: "metric", label: "电量", value: params.battery, note: "" }
     ];
+  }
+
+  function serializeParams(template, params) {
+    const normalized = normalizeTemplate(template);
+    if (normalized === "schedule") {
+      return params.items || "";
+    }
+    if (normalized === "habit") {
+      return params.habits || "";
+    }
+    if (normalized === "quote") {
+      return params.quote || "";
+    }
+    if (normalized === "image") {
+      return params.caption || "";
+    }
+    if (normalized === "today") {
+      return `天气 | ${params.weather}\n待办 | ${params.todo}\n下一项 | ${params.next}\n电量 | ${params.battery}\n提醒 | ${params.note}`;
+    }
+    return Object.entries(params)
+      .map(([key, value]) => `${key} | ${value}`)
+      .join("\n");
+  }
+
+  function paramsFromBody(template, body) {
+    const normalized = normalizeTemplate(template);
+    const text = String(body || "");
+    if (normalized === "schedule") {
+      return { items: text };
+    }
+    if (normalized === "habit") {
+      return { habits: text };
+    }
+    if (normalized === "quote") {
+      return { quote: text };
+    }
+    if (normalized === "image") {
+      return { caption: text };
+    }
+    if (normalized === "today") {
+      const result = {};
+      parseMetricLines(text).forEach((item) => {
+        if (item.label.includes("天气")) result.weather = item.value;
+        if (item.label.includes("待办")) result.todo = item.value;
+        if (item.label.includes("下一")) result.next = item.value;
+        if (item.label.includes("电量")) result.battery = item.value;
+        if (item.label.includes("提醒")) result.note = item.value;
+      });
+      return result;
+    }
+    const result = {};
+    text.split(/\r?\n/).forEach((line) => {
+      const parts = line.split("|").map((part) => part.trim());
+      if (parts.length >= 2 && parts[0]) {
+        result[parts[0]] = parts.slice(1).join(" | ");
+      }
+    });
+    return result;
   }
 
   function parseMetricLines(text) {
@@ -850,18 +1442,21 @@
       });
   }
 
-  function parseChecklistLines(text) {
+  function parseHabitLines(text) {
     return String(text || "")
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter(Boolean)
       .map((line) => {
+        const parts = line.split("|").map((part) => part.trim());
+        if (parts.length >= 2) {
+          return { text: parts[0], checked: parts[1] === "1" || /^x|true|yes|done$/i.test(parts[1]) };
+        }
         const match = line.match(/^(?:[-*]\s*)?\[(x|X| )\]\s*(.+)$/);
         if (match) {
           return { checked: match[1].toLowerCase() === "x", text: match[2] };
         }
-        const loose = line.match(/^(x\s+|done\s+)?(.+)$/i);
-        return { checked: Boolean(loose?.[1]), text: loose?.[2] || line };
+        return { text: line, checked: false };
       });
   }
 

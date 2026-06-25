@@ -102,7 +102,8 @@ button.primary:hover:not(:disabled) {
 }
 
 h1,
-h2 {
+h2,
+h3 {
   margin: 0;
   letter-spacing: 0;
 }
@@ -114,6 +115,11 @@ h1 {
 
 h2 {
   font-size: 18px;
+  line-height: 1.2;
+}
+
+h3 {
+  font-size: 14px;
   line-height: 1.2;
 }
 
@@ -291,6 +297,38 @@ textarea:focus {
   display: none;
 }
 
+.param-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.param-head button {
+  min-height: 34px;
+  padding-inline: 10px;
+}
+
+.param-editor {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.param-editor .field.wide {
+  grid-column: 1 / -1;
+}
+
+.param-editor textarea {
+  min-height: 92px;
+}
+
+.param-editor input[type="checkbox"] {
+  width: 18px;
+  min-height: 18px;
+  accent-color: var(--accent);
+}
+
 .preview-column {
   display: grid;
   gap: 14px;
@@ -463,6 +501,10 @@ input[type="range"] {
 
   .segmented {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .param-editor {
+    grid-template-columns: 1fr;
   }
 }
 

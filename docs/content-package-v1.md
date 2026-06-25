@@ -10,7 +10,7 @@ offline file transfer.
   "schema": "inkscreen.package.v1",
   "packageId": "ink_20260625_123456_ab12",
   "createdAt": "2026-06-25T12:34:56.000Z",
-  "tool": { "name": "InkScreen Studio", "version": "0.2.0" },
+  "tool": { "name": "InkScreen Studio", "version": "0.3.0" },
   "target": {
     "width": 250,
     "height": 122,
@@ -24,7 +24,8 @@ offline file transfer.
     "threshold": 156,
     "dither": "threshold",
     "invert": false,
-    "fontScale": 1
+    "fontScale": 1,
+    "rasterScale": 3
   },
   "pages": []
 }
@@ -32,13 +33,22 @@ offline file transfer.
 
 ## Page
 
-Each page stores both structured blocks and a firmware-ready bitmap.
+Each page stores template parameters, structured blocks, and a firmware-ready
+bitmap. Firmware can use `bitmap` directly first, then support re-rendering from
+`template` and `params` later.
 
 ```json
 {
   "id": "page_home",
   "title": "Today",
   "kind": "dashboard",
+  "template": "today",
+  "params": {
+    "weather": "Sunny 26C",
+    "todo": "3",
+    "next": "10:10 Circuit",
+    "battery": "86%"
+  },
   "order": 0,
   "durationSec": 0,
   "blocks": [],

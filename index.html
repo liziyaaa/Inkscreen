@@ -36,16 +36,20 @@
             <input id="pageTitleInput" type="text" maxlength="40" autocomplete="off">
           </label>
 
-          <div class="segmented" role="tablist" aria-label="页面类型">
-            <button class="segment active" type="button" data-kind="dashboard">看板</button>
-            <button class="segment" type="button" data-kind="agenda">日程</button>
-            <button class="segment" type="button" data-kind="checklist">清单</button>
-            <button class="segment" type="button" data-kind="quote">便签</button>
-            <button class="segment" type="button" data-kind="image">图片</button>
+          <label class="field">
+            <span>显示模板</span>
+            <select id="templateInput"></select>
+          </label>
+
+          <div class="param-head">
+            <h3>参数</h3>
+            <button id="sampleButton" type="button">填入示例</button>
           </div>
 
+          <div class="param-editor" id="paramEditor"></div>
+
           <label class="field">
-            <span>正文</span>
+            <span>批量文本</span>
             <textarea id="bodyInput" rows="8" spellcheck="false"></textarea>
           </label>
 
