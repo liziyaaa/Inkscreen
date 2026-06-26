@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "0.3.0";
+  const APP_VERSION = "0.3.1";
   const STORAGE_KEY = "inkscreen.studio.v2";
   const SCHEMA = "inkscreen.package.v1";
   const CHUNK_SIZE = 180;
@@ -273,7 +273,7 @@
     updateConnectionUi();
     drawPreviewAndMetrics();
     registerServiceWorker();
-    logLine("就绪：v0.3 已使用模板参数和高清二值化渲染。");
+    logLine(`就绪：v${APP_VERSION} 已使用模板参数和高清二值化渲染。`);
   }
 
   function bindElements() {
@@ -758,7 +758,24 @@
 
     canvas.width = width;
     canvas.height = height;
+    const previewScale = getPreviewScale(width, height);
+    canvas.style.width = `${Math.round(width * previewScale)}px`;
+    canvas.style.height = "auto";
     rasterizeSourceToCanvas(source, canvas, width, height, scale, render);
+  }
+
+  function getPreviewScale(width, height) {
+    const maxSide = Math.max(width, height);
+    if (maxSide <= 260) {
+      return 2;
+    }
+    if (maxSide <= 320) {
+      return 1.7;
+    }
+    if (maxSide <= 420) {
+      return 1.35;
+    }
+    return 1;
   }
 
   function drawPage(ctx, page, width, height, size) {
@@ -816,21 +833,70 @@
   function drawToday(ctx, page, width, height, size) {
     const yStart = drawHeader(ctx, page, width, size);
     const params = getPageParams(page);
-    const metrics = [
-      { label: "天气", value: params.weather, note: params.note },
-      { label: "待办", value: params.todo, note: "items" },
-      { label: "下一项", value: params.next, note: "" },
-      { label: "电量", value: params.battery, note: "battery" }
+    const contentX = size.margin;
+    const contentY = yStart;
+    const contentW = width - size.margin * 2;
+    const bottomY = height - size.margin - size.small * 1.7;
+    const contentH = Math.max(40, bottomY - contentY);
+
+    if (width < height * 1.05) {
+      const metrics = [
+        { label: "天气", value: params.weather, note: params.note },
+        { label: "待办", value: params.todo, note: "items" },
+        { label: "下一项", value: params.next, note: "" },
+        { label: "电量", value: params.battery, note: "battery" }
+      ];
+      drawMetricGrid(ctx, metrics, contentX, contentY, contentW, contentH, size);
+      return;
+    }
+
+    const weather = splitWeather(params.weather);
+    const leftW = Math.max(72, Math.round(contentW * 0.38));
+    const rightX = contentX + leftW + size.gap;
+    const rightW = contentW - leftW - size.gap;
+    const nextH = Math.max(size.body + 9, Math.round(contentH * 0.26));
+    const topH = contentH - nextH - size.gap;
+
+    setFont(ctx, 800, size.small);
+    drawFitText(ctx, "天气", contentX + size.gap, contentY + size.small + 3, leftW - size.gap * 2);
+    setFont(ctx, 950, Math.min(31, Math.max(24, Math.round(topH * 0.48))));
+    drawFitText(ctx, weather.temp, contentX + size.gap, contentY + topH - size.small - 4, leftW - size.gap * 2, { minSize: 19 });
+    setFont(ctx, 750, size.micro);
+    drawFitText(ctx, weather.condition || params.note, contentX + size.gap, contentY + topH - 4, leftW - size.gap * 2);
+
+    ctx.beginPath();
+    ctx.moveTo(snap(contentX + leftW + Math.round(size.gap / 2)), snap(contentY + 1));
+    ctx.lineTo(snap(contentX + leftW + Math.round(size.gap / 2)), snap(contentY + topH - 1));
+    ctx.stroke();
+
+    const statusLines = [
+      `待办 ${params.todo}`,
+      `电量 ${params.battery}`
     ];
-    drawMetricGrid(ctx, metrics, size.margin, yStart, width - size.margin * 2, height - yStart - size.margin - size.small * 1.7, size);
+    const statusLineH = Math.max(size.body + 4, Math.floor(topH / Math.max(2, statusLines.length)));
+    statusLines.forEach((line, index) => {
+      const lineY = contentY + Math.round(statusLineH * index + (statusLineH + size.body) / 2);
+      setFont(ctx, index === 0 ? 880 : 780, index === 0 ? size.body + 1 : size.small);
+      drawFitText(ctx, line, rightX, lineY, rightW, { minSize: 9 });
+    });
+
+    const nextY = contentY + topH + size.gap;
+    strokeRect(ctx, contentX, nextY, contentW, nextH);
+    setFont(ctx, 750, size.micro);
+    drawFitText(ctx, "下一项", contentX + size.gap, nextY + size.micro + 3, Math.max(34, contentW * 0.2));
+    setFont(ctx, 850, size.body);
+    drawFitText(ctx, params.next, contentX + Math.max(42, contentW * 0.22), nextY + Math.round((nextH + size.body) / 2) - 1, contentW - Math.max(48, contentW * 0.24), { minSize: 10 });
   }
 
   function drawMetricGrid(ctx, metrics, x, y, width, height, size) {
     const columns = width > height * 1.2 ? 2 : 1;
-    const rows = Math.ceil(metrics.length / columns) || 1;
+    const minCellH = Math.max(28, size.body + size.small + 9);
+    const maxRows = Math.max(1, Math.floor((height + size.gap) / (minCellH + size.gap)));
+    const visibleMetrics = metrics.slice(0, maxRows * columns);
+    const rows = Math.ceil(visibleMetrics.length / columns) || 1;
     const cellW = (width - size.gap * (columns - 1)) / columns;
     const cellH = Math.max(24, (height - size.gap * (rows - 1)) / rows);
-    metrics.forEach((metric, index) => {
+    visibleMetrics.forEach((metric, index) => {
       const col = index % columns;
       const row = Math.floor(index / columns);
       const cellX = x + col * (cellW + size.gap);
@@ -838,16 +904,52 @@
       strokeRect(ctx, cellX, cellY, cellW, cellH);
       ctx.fillRect(Math.round(cellX), Math.round(cellY), Math.max(2, Math.round(size.gap * 0.55)), Math.round(cellH));
       setFont(ctx, 700, size.small);
+      const valueSize = Math.max(size.body, Math.min(size.body + 5, Math.round(cellH * 0.34)));
+      if (cellH < size.small + valueSize + 12) {
+        setFont(ctx, 850, Math.max(size.body, Math.round(cellH * 0.36)));
+        drawFitText(ctx, `${metric.label} ${metric.value}`, cellX + size.gap, cellY + Math.round((cellH + size.body) / 2) + 1, cellW - size.gap * 2, { minSize: 10 });
+        return;
+      }
       drawFitText(ctx, metric.label, cellX + size.gap, cellY + size.small + 3, cellW - size.gap * 2);
-      setFont(ctx, 900, Math.max(size.body + 4, Math.round(cellH * 0.36)));
-      drawFitText(ctx, metric.value, cellX + size.gap, cellY + cellH - size.small - 2, cellW - size.gap * 2);
-      if (metric.note) {
+      setFont(ctx, 900, valueSize);
+      const valueY = metric.note && cellH >= size.body + size.small + 15
+        ? cellY + cellH - size.small - 2
+        : cellY + Math.round((cellH + valueSize) / 2) + 2;
+      drawFitText(ctx, metric.value, cellX + size.gap, valueY, cellW - size.gap * 2, { minSize: 10 });
+      if (metric.note && cellH >= size.body + size.small + 15) {
         setFont(ctx, 600, size.micro);
         ctx.fillStyle = "#555555";
         drawFitText(ctx, metric.note, cellX + size.gap, cellY + cellH - 3, cellW - size.gap * 2);
         ctx.fillStyle = "#111111";
       }
     });
+  }
+
+  function drawKeyValueBox(ctx, label, value, x, y, width, height, size) {
+    strokeRect(ctx, x, y, width, height);
+    const valueSize = Math.max(size.body + 1, Math.round(height * 0.34));
+    if (height < size.micro + valueSize + 11) {
+      setFont(ctx, 850, Math.max(size.body, Math.round(height * 0.38)));
+      drawFitText(ctx, `${label} ${value}`, x + size.gap, y + Math.round((height + size.body) / 2) + 1, width - size.gap * 2, { minSize: 10 });
+      return;
+    }
+    setFont(ctx, 750, size.micro);
+    drawFitText(ctx, label, x + size.gap, y + size.micro + 3, width - size.gap * 2);
+    setFont(ctx, 900, valueSize);
+    drawFitText(ctx, value, x + size.gap, y + height - 5, width - size.gap * 2, { minSize: 10 });
+  }
+
+  function splitWeather(value) {
+    const text = String(value || "").trim();
+    const parts = text.split(/\s+/).filter(Boolean);
+    const tempIndex = parts.findIndex((part) => /\d/.test(part));
+    if (tempIndex >= 0) {
+      return {
+        condition: parts.filter((_, index) => index !== tempIndex).join(" "),
+        temp: parts[tempIndex]
+      };
+    }
+    return { condition: "", temp: text || "--" };
   }
 
   function drawAgenda(ctx, page, width, height, size) {
@@ -1051,7 +1153,9 @@
   }
 
   function setFont(ctx, weight, size) {
-    ctx.font = `${weight} ${Math.round(size)}px ${FONT_STACK}`;
+    ctx.__fontWeight = weight;
+    ctx.__fontSize = Math.round(size);
+    ctx.font = `${ctx.__fontWeight} ${ctx.__fontSize}px ${FONT_STACK}`;
   }
 
   function strokeRect(ctx, x, y, width, height) {
@@ -1062,10 +1166,21 @@
     return Math.round(value) + 0.5;
   }
 
-  function drawFitText(ctx, text, x, y, maxWidth) {
+  function drawFitText(ctx, text, x, y, maxWidth, options = {}) {
     const value = String(text || "");
+    const initialWeight = ctx.__fontWeight || 700;
+    const initialSize = ctx.__fontSize || 12;
+    let activeSize = initialSize;
+    const minSize = options.minSize || Math.max(9, Math.round(initialSize * 0.78));
+    while (ctx.measureText(value).width > maxWidth && activeSize > minSize) {
+      activeSize -= 1;
+      setFont(ctx, initialWeight, activeSize);
+    }
     if (ctx.measureText(value).width <= maxWidth) {
       ctx.fillText(value, x, y);
+      if (activeSize !== initialSize) {
+        setFont(ctx, initialWeight, initialSize);
+      }
       return;
     }
     let clipped = value;
@@ -1073,6 +1188,9 @@
       clipped = clipped.slice(0, -1);
     }
     ctx.fillText(`${clipped}...`, x, y);
+    if (activeSize !== initialSize) {
+      setFont(ctx, initialWeight, initialSize);
+    }
   }
 
   function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxY) {

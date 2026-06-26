@@ -10,7 +10,7 @@ offline file transfer.
   "schema": "inkscreen.package.v1",
   "packageId": "ink_20260625_123456_ab12",
   "createdAt": "2026-06-25T12:34:56.000Z",
-  "tool": { "name": "InkScreen Studio", "version": "0.3.0" },
+  "tool": { "name": "InkScreen Studio", "version": "0.3.1" },
   "target": {
     "width": 250,
     "height": 122,
