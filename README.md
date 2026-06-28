@@ -1,24 +1,28 @@
 # InkScreen Studio
 
-手机端墨水屏内容工具，用来给 ESP32-C3 墨水屏摆件编辑、预览、导出和上传内容。
+手机端墨水屏摆件内容工具，当前方案面向 ESP32-C3 + 4.2 寸 400×300 黑白墨水屏。网页负责编辑参数、渲染 1bpp 位图、导出设备 Manifest，也可以通过 BLE 或局域网 Wi-Fi 把内容推给设备。
 
-## 功能
+## 当前方案
 
-- 多页内容 deck：看板、日程、清单、便签、图片。
-- 模板参数化编辑：天气、番茄钟、倒计时、习惯打卡、桌面提醒、设备状态、单词卡等。
-- 浏览器端高清离屏渲染黑白预览，并打包成 `raw-1bpp-msb` 位图。
-- 导出 `inkscreen.package.v1` JSON 内容包。
-- 支持 Web Bluetooth 发送完整内容包或当前位图。
-- 支持 Wi-Fi HTTP 上传接口草案。
-- 可作为 PWA 安装，静态部署到 GitHub Pages。
+- 默认尺寸：4.2 寸 400×300，`raw-1bpp-msb` 位图大小为 15000 B。
+- 默认页面：今日总览、课程/日程、效率看板、氛围页、设备状态。
+- 内容模型：每页都有 `template`、`params`、`blocks` 和渲染后的 `bitmap`。
+- 自动更新：ESP32 定时唤醒后拉取 `inkscreen.manifest.v1`，只在 CRC 变化时下载对应 `.bin` 位图并刷新屏幕。
+- 手动交互：旋钮/波轮用于翻页，按下可触发立即同步、刷新或进入设置。
+
+## 传输方式
+
+- BLE：适合首次配网、近距离手动更新、写入 Wi-Fi 配置。
+- Wi-Fi 推送：网页向设备 `POST` 内容包或当前位图，适合局域网调试。
+- Wi-Fi 拉取：推荐长期摆件方案。网页或后端生成 `manifest.json` 和页面 `.bin`，ESP32 周期性拉取。
 
 ## 内容包规范
 
-规范文档见 `docs/content-package-v1.md`。每个页面同时包含：
+详细规范见 [docs/content-package-v1.md](docs/content-package-v1.md)。核心格式：
 
-- `template` / `params`：模板与参数，便于手机端、网页端和固件同步同一套内容模型。
-- `blocks`：结构化内容，便于后续固件或服务端重排。
-- `bitmap`：已经渲染好的 1bpp 数据，便于 ESP32 早期固件直接显示。
+- `inkscreen.package.v1`：完整内容包，包含所有页面参数和 base64 位图。
+- `inkscreen.manifest.v1`：给 ESP32 拉取用的轻量清单，包含页面 URL、字节数和 CRC32。
+- 位图格式：逐行打包，MSB first，黑点为 `1`，白点为 `0`。
 
 ## BLE UUID
 

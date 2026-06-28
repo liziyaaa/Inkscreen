@@ -1,19 +1,19 @@
 # InkScreen Content Package v1
 
-InkScreen Studio exports one self-contained JSON package for BLE, Wi-Fi, and
-offline file transfer.
+InkScreen Studio exports firmware-friendly JSON and bitmap files for an ESP32-C3
+driving a 4.2 inch 400×300 black-white e-paper display.
 
-## Envelope
+## Package Envelope
 
 ```json
 {
   "schema": "inkscreen.package.v1",
-  "packageId": "ink_20260625_123456_ab12",
-  "createdAt": "2026-06-25T12:34:56.000Z",
-  "tool": { "name": "InkScreen Studio", "version": "0.3.1" },
+  "packageId": "ink_20260628_123456_ab12",
+  "createdAt": "2026-06-28T12:34:56.000Z",
+  "tool": { "name": "InkScreen Studio", "version": "0.4.0" },
   "target": {
-    "width": 250,
-    "height": 122,
+    "width": 400,
+    "height": 300,
     "color": "bw",
     "bpp": 1,
     "pixelOrder": "row-major",
@@ -21,11 +21,17 @@ offline file transfer.
     "blackBit": 1
   },
   "render": {
-    "threshold": 156,
+    "threshold": 150,
     "dither": "threshold",
     "invert": false,
     "fontScale": 1,
     "rasterScale": 3
+  },
+  "updatePolicy": {
+    "mode": "pull",
+    "intervalMin": 30,
+    "manifestUrl": "https://example.com/device/manifest.json",
+    "timezone": "Asia/Shanghai"
   },
   "pages": []
 }
@@ -33,21 +39,26 @@ offline file transfer.
 
 ## Page
 
-Each page stores template parameters, structured blocks, and a firmware-ready
-bitmap. Firmware can use `bitmap` directly first, then support re-rendering from
-`template` and `params` later.
+Each page stores template parameters, structured blocks, and a display-ready
+bitmap. Early firmware can draw `bitmap` directly; later firmware can choose to
+re-render from `template` and `params`.
 
 ```json
 {
   "id": "page_home",
-  "title": "Today",
+  "title": "今日看板",
   "kind": "dashboard",
   "template": "today",
   "params": {
-    "weather": "Sunny 26C",
+    "date": "06月28日",
+    "weekday": "星期日",
+    "weather": "晴 26C",
+    "aqi": "AQI 42",
     "todo": "3",
-    "next": "10:10 Circuit",
-    "battery": "86%"
+    "next": "10:10 电路分析",
+    "countdown": "PCB 下单 D-7",
+    "battery": "86%",
+    "note": "把最重要的一件事先做掉"
   },
   "order": 0,
   "durationSec": 0,
@@ -55,9 +66,9 @@ bitmap. Firmware can use `bitmap` directly first, then support re-rendering from
   "bitmap": {
     "schema": "inkscreen.package.v1",
     "format": "raw-1bpp-msb",
-    "width": 250,
-    "height": 122,
-    "bytes": 3813,
+    "width": 400,
+    "height": 300,
+    "bytes": 15000,
     "crc32": "1a2b3c4d",
     "encoding": "base64",
     "data": "..."
@@ -65,8 +76,16 @@ bitmap. Firmware can use `bitmap` directly first, then support re-rendering from
 }
 ```
 
-`durationSec: 0` means manual wheel control. A later firmware can use non-zero
-values for automatic page rotation.
+`durationSec: 0` means manual wheel control. Non-zero values can be used by
+firmware for automatic page rotation.
+
+## Recommended Templates
+
+- `today`: date, weather, AQI, next schedule item, todo count, countdown, device battery.
+- `schedule`: course timetable or daily agenda.
+- `productivity`: focus task, progress, todos, habit checks.
+- `ambient`: quote, word card, short note or daily mood.
+- `device`: Wi-Fi, IP, battery, update status.
 
 ## Blocks
 
@@ -88,6 +107,7 @@ Supported block types:
 - Black pixel: bit `1`
 - White pixel: bit `0`
 - Row stride: `ceil(width / 8)` bytes
+- 400×300 payload: `ceil(400 / 8) * 300 = 15000` bytes
 - Tail bits after the final pixel of a row: `0`
 - CRC32: calculated over raw bitmap bytes
 
@@ -97,6 +117,54 @@ Pixel packing:
 byteIndex = y * ceil(width / 8) + floor(x / 8)
 bitIndex  = 7 - (x % 8)
 ```
+
+## Pull Manifest
+
+The recommended desk ornament mode is ESP32 pull update:
+
+```json
+{
+  "schema": "inkscreen.manifest.v1",
+  "generatedAt": "2026-06-28T12:34:56.000Z",
+  "tool": { "name": "InkScreen Studio", "version": "0.4.0" },
+  "target": { "width": 400, "height": 300, "bpp": 1 },
+  "updatePolicy": {
+    "mode": "pull",
+    "intervalMin": 30,
+    "manifestUrl": "https://example.com/device/manifest.json",
+    "timezone": "Asia/Shanghai"
+  },
+  "pages": [
+    {
+      "id": "page_home",
+      "title": "今日看板",
+      "order": 0,
+      "template": "today",
+      "width": 400,
+      "height": 300,
+      "format": "raw-1bpp-msb",
+      "bytes": 15000,
+      "crc32": "1a2b3c4d",
+      "url": "https://example.com/device/01-today-1a2b3c4d.bin"
+    }
+  ]
+}
+```
+
+Firmware loop:
+
+1. Wake by timer or wheel button.
+2. Connect Wi-Fi and sync time with NTP.
+3. `GET manifestUrl`, parse `inkscreen.manifest.v1`.
+4. Compare each page `crc32` with the CRC stored in NVS/LittleFS.
+5. Download only changed `.bin` files.
+6. Draw the selected page to the e-paper, then store CRC and sleep.
+
+Suggested intervals:
+
+- Weather and schedule: 30 minutes.
+- Daily quote, word, countdown: once per day plus manual refresh.
+- Device status: update locally before sleep without network if possible.
 
 ## BLE
 
@@ -115,13 +183,13 @@ Full package:
 
 Current bitmap only:
 
-1. Control JSON: `{"cmd":"bitmap_begin","width":250,"height":122,"format":"raw-1bpp-msb","bytes":3813}`
+1. Control JSON: `{"cmd":"bitmap_begin","width":400,"height":300,"format":"raw-1bpp-msb","bytes":15000}`
 2. Raw bitmap byte chunks on the Data characteristic.
 3. Control JSON: `{"cmd":"bitmap_end","crc32":"..."}`
 
 Recommended default chunk size: 180 bytes.
 
-## Wi-Fi
+## Wi-Fi Push
 
 Full package:
 

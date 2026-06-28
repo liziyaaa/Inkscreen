@@ -1,9 +1,10 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "0.3.1";
-  const STORAGE_KEY = "inkscreen.studio.v2";
+  const APP_VERSION = "0.4.0";
+  const STORAGE_KEY = "inkscreen.studio.v3";
   const SCHEMA = "inkscreen.package.v1";
+  const MANIFEST_SCHEMA = "inkscreen.manifest.v1";
   const CHUNK_SIZE = 180;
   const RASTER_SCALE = 3;
   const FONT_STACK = '"Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", Arial, sans-serif';
@@ -25,12 +26,16 @@
     habit: "习惯",
     notice: "提醒",
     device: "设备",
-    word: "单词"
+    word: "单词",
+    productivity: "效率",
+    ambient: "氛围"
   };
 
   const TEMPLATE_ORDER = [
     "today",
     "schedule",
+    "productivity",
+    "ambient",
     "weather",
     "focus",
     "countdown",
@@ -49,16 +54,24 @@
       title: "今日看板",
       footer: "InkScreen",
       defaults: {
+        date: "06月28日",
+        weekday: "星期日",
         weather: "晴 26C",
+        aqi: "AQI 42",
         todo: "3",
         next: "10:10 电路分析",
+        countdown: "PCB 下单 D-7",
         battery: "86%",
         note: "把最重要的一件事先做掉"
       },
       fields: [
+        field("date", "日期", "text"),
+        field("weekday", "星期", "text"),
         field("weather", "天气", "text"),
+        field("aqi", "空气", "text"),
         field("todo", "待办", "text"),
         field("next", "下一项", "text", true),
+        field("countdown", "倒计时", "text", true),
         field("battery", "电量", "text"),
         field("note", "提醒", "text", true)
       ]
@@ -72,6 +85,46 @@
         items: "08:00 | 高等数学 | A201\n10:10 | 电路分析 | B105\n14:00 | 项目制作 | 实验室\n19:30 | 跑步 30 min"
       },
       fields: [field("items", "日程", "textarea", true)]
+    },
+    productivity: {
+      label: "效率看板",
+      kind: "productivity",
+      title: "效率看板",
+      footer: "Focus",
+      defaults: {
+        focus: "完成 ESP32 拉取固件",
+        progress: "55",
+        todos: "确认 4.2 寸屏排线\n整理 API 数据源\n晚上复盘 10 分钟",
+        habits: "早起 | 1\n阅读 | 1\n运动 | 0",
+        streak: "连续 5 天"
+      },
+      fields: [
+        field("focus", "今日重点", "text", true),
+        field("progress", "进度 %", "number"),
+        field("todos", "待办", "textarea", true),
+        field("habits", "习惯", "textarea", true),
+        field("streak", "连续", "text")
+      ]
+    },
+    ambient: {
+      label: "氛围页",
+      kind: "ambient",
+      title: "今日留白",
+      footer: "InkScreen",
+      defaults: {
+        quote: "把重要的事情放到视线里，生活会自己变得清楚一点。",
+        by: "InkScreen",
+        word: "clarity",
+        meaning: "清晰；明确",
+        footerNote: "今天也慢慢来"
+      },
+      fields: [
+        field("quote", "句子", "textarea", true),
+        field("by", "署名", "text"),
+        field("word", "单词", "text"),
+        field("meaning", "含义", "text", true),
+        field("footerNote", "角标", "text", true)
+      ]
     },
     weather: {
       label: "天气卡片",
@@ -228,10 +281,10 @@
   };
 
   const PRESETS = new Map([
+    ["400x300", { width: 400, height: 300 }],
     ["250x122", { width: 250, height: 122 }],
     ["122x250", { width: 122, height: 250 }],
-    ["296x128", { width: 296, height: 128 }],
-    ["400x300", { width: 400, height: 300 }]
+    ["296x128", { width: 296, height: 128 }]
   ]);
 
   const el = {};
@@ -311,6 +364,11 @@
       "deviceIpInput",
       "wifiPackageButton",
       "wifiBitmapButton",
+      "manifestUrlInput",
+      "updateIntervalInput",
+      "timezoneInput",
+      "downloadManifestButton",
+      "downloadBinButton",
       "downloadPackageButton",
       "downloadPngButton",
       "logOutput"
@@ -361,6 +419,11 @@
     el.wifiConfigButton.addEventListener("click", sendWifiConfig);
     el.wifiPackageButton.addEventListener("click", sendWifiPackage);
     el.wifiBitmapButton.addEventListener("click", sendWifiBitmap);
+    el.manifestUrlInput.addEventListener("input", () => setUpdateOption("manifestUrl", el.manifestUrlInput.value));
+    el.updateIntervalInput.addEventListener("input", () => setUpdateOption("intervalMin", clamp(Number(el.updateIntervalInput.value) || 0, 5, 1440)));
+    el.timezoneInput.addEventListener("input", () => setUpdateOption("timezone", el.timezoneInput.value));
+    el.downloadManifestButton.addEventListener("click", downloadManifest);
+    el.downloadBinButton.addEventListener("click", downloadBin);
     el.downloadPackageButton.addEventListener("click", downloadPackage);
     el.downloadPngButton.addEventListener("click", downloadPng);
   }
@@ -369,13 +432,19 @@
     return {
       packageTitle: "InkScreen Deck",
       target: {
-        width: 250,
-        height: 122,
+        width: 400,
+        height: 300,
         color: "bw",
         bpp: 1,
         pixelOrder: "row-major",
         bitOrder: "msb",
         blackBit: 1
+      },
+      update: {
+        mode: "pull",
+        intervalMin: 30,
+        manifestUrl: "https://liziyaaa.github.io/Inkscreen/device/manifest.json",
+        timezone: "Asia/Shanghai"
       },
       render: {
         threshold: 150,
@@ -387,12 +456,9 @@
       pages: [
         createPage("today", { id: "page_home" }),
         createPage("schedule", { id: "page_agenda" }),
-        createPage("weather", { id: "page_weather" }),
-        createPage("focus", { id: "page_focus" }),
-        createPage("countdown", { id: "page_countdown" }),
-        createPage("habit", { id: "page_habit" }),
-        createPage("word", { id: "page_word" }),
-        createPage("notice", { id: "page_notice" })
+        createPage("productivity", { id: "page_productivity" }),
+        createPage("ambient", { id: "page_ambient" }),
+        createPage("device", { id: "page_device" })
       ]
     };
   }
@@ -417,14 +483,21 @@
   function normalizeModel() {
     state.model = state.model || createDefaultModel();
     state.model.target = {
-      width: 250,
-      height: 122,
+      width: 400,
+      height: 300,
       color: "bw",
       bpp: 1,
       pixelOrder: "row-major",
       bitOrder: "msb",
       blackBit: 1,
       ...(state.model.target || {})
+    };
+    state.model.update = {
+      mode: "pull",
+      intervalMin: 30,
+      manifestUrl: "https://liziyaaa.github.io/Inkscreen/device/manifest.json",
+      timezone: "Asia/Shanghai",
+      ...(state.model.update || {})
     };
     state.model.render = {
       threshold: 150,
@@ -493,6 +566,9 @@
     el.ditherInput.value = state.model.render.dither;
     el.thresholdInput.value = state.model.render.threshold;
     el.invertInput.checked = Boolean(state.model.render.invert);
+    el.manifestUrlInput.value = state.model.update.manifestUrl || "";
+    el.updateIntervalInput.value = state.model.update.intervalMin || 30;
+    el.timezoneInput.value = state.model.update.timezone || "Asia/Shanghai";
     const presetKey = `${state.model.target.width}x${state.model.target.height}`;
     el.presetInput.value = PRESETS.has(presetKey) ? presetKey : "custom";
     renderParamEditor();
@@ -697,6 +773,15 @@
     persistState();
   }
 
+  function setUpdateOption(key, value) {
+    state.model.update = {
+      ...(state.model.update || {}),
+      [key]: value
+    };
+    drawPreviewAndMetrics();
+    persistState();
+  }
+
   function handleImageUpload(event) {
     const file = event.target.files?.[0];
     if (!file) {
@@ -782,6 +867,10 @@
     const template = normalizeTemplate(page.template);
     if (template === "schedule") {
       drawAgenda(ctx, page, width, height, size);
+    } else if (template === "productivity") {
+      drawProductivity(ctx, page, width, height, size);
+    } else if (template === "ambient") {
+      drawAmbient(ctx, page, width, height, size);
     } else if (template === "habit") {
       drawHabit(ctx, page, width, height, size);
     } else if (template === "quote") {
@@ -809,6 +898,16 @@
   function getCanvasSizes(width, height) {
     const minSide = Math.min(width, height);
     const scale = state.model.render.fontScale || 1;
+    if (width >= 360 && height >= 260) {
+      return {
+        margin: Math.round(16 * scale),
+        gap: Math.round(8 * scale),
+        title: Math.round(34 * scale),
+        body: Math.round(21 * scale),
+        small: Math.round(15 * scale),
+        micro: Math.round(12 * scale)
+      };
+    }
     return {
       margin: Math.max(7, Math.round(minSide * 0.07)),
       gap: Math.max(4, Math.round(minSide * 0.036)),
@@ -838,6 +937,49 @@
     const contentW = width - size.margin * 2;
     const bottomY = height - size.margin - size.small * 1.7;
     const contentH = Math.max(40, bottomY - contentY);
+
+    if (width >= 360 && height >= 260) {
+      const dateW = Math.round(contentW * 0.42);
+      const rightX = contentX + dateW + size.gap;
+      const rightW = contentW - dateW - size.gap;
+      const dateBlockH = Math.round(contentH * 0.47);
+      const weatherY = contentY + dateBlockH + size.gap;
+      const weatherH = Math.max(72, contentH - dateBlockH - size.gap);
+
+      strokeRect(ctx, contentX, contentY, dateW, dateBlockH);
+      setFont(ctx, 900, Math.round(size.title * 0.72));
+      drawFitText(ctx, params.date, contentX + size.gap, contentY + size.title * 0.75, dateW - size.gap * 2, { minSize: 22 });
+      setFont(ctx, 760, size.body);
+      drawFitText(ctx, params.weekday, contentX + size.gap, contentY + size.title * 0.75 + size.body + 8, dateW - size.gap * 2);
+      setFont(ctx, 720, size.small);
+      drawFitText(ctx, params.note, contentX + size.gap, contentY + dateBlockH - size.gap, dateW - size.gap * 2, { minSize: 14 });
+
+      const weather = splitWeather(params.weather);
+      strokeRect(ctx, contentX, weatherY, dateW, weatherH);
+      setFont(ctx, 760, size.small);
+      drawFitText(ctx, weather.condition || "天气", contentX + size.gap, weatherY + size.small + 5, dateW - size.gap * 2);
+      setFont(ctx, 950, Math.round(size.title * 1.05));
+      drawFitText(ctx, weather.temp, contentX + size.gap, weatherY + Math.round(weatherH * 0.66), dateW - size.gap * 2, { minSize: 28 });
+      setFont(ctx, 720, size.small);
+      drawFitText(ctx, params.aqi, contentX + size.gap, weatherY + weatherH - size.gap, dateW - size.gap * 2);
+
+      const cards = [
+        { label: "下一项", value: params.next },
+        { label: "待办", value: `${params.todo} 项` },
+        { label: "倒计时", value: params.countdown },
+        { label: "设备", value: `电量 ${params.battery}` }
+      ];
+      const rowH = Math.floor((contentH - size.gap * 3) / 4);
+      cards.forEach((card, index) => {
+        const y = contentY + index * (rowH + size.gap);
+        strokeRect(ctx, rightX, y, rightW, rowH);
+        setFont(ctx, 720, size.micro);
+        drawFitText(ctx, card.label, rightX + size.gap, y + size.micro + 4, rightW - size.gap * 2);
+        setFont(ctx, 850, index === 0 ? size.body : size.body - 1);
+        drawFitText(ctx, card.value, rightX + size.gap, y + rowH - size.gap, rightW - size.gap * 2, { minSize: 15 });
+      });
+      return;
+    }
 
     if (width < height * 1.05) {
       const metrics = [
@@ -939,6 +1081,52 @@
     drawFitText(ctx, value, x + size.gap, y + height - 5, width - size.gap * 2, { minSize: 10 });
   }
 
+  function drawTextListBox(ctx, title, items, x, y, width, height, size) {
+    strokeRect(ctx, x, y, width, height);
+    setFont(ctx, 780, size.small);
+    drawFitText(ctx, title, x + size.gap, y + size.small + 5, width - size.gap * 2);
+    const startY = y + size.small + size.gap + 8;
+    const rowH = Math.max(size.body + 6, Math.floor((height - size.small - size.gap * 2) / Math.max(1, items.length)));
+    items.forEach((item, index) => {
+      const rowY = startY + index * rowH;
+      if (rowY + size.body > y + height - size.gap) {
+        return;
+      }
+      const dotSize = Math.max(4, Math.round(size.micro * 0.28));
+      ctx.fillRect(Math.round(x + size.gap), Math.round(rowY + size.body * 0.35), dotSize, dotSize);
+      setFont(ctx, 780, size.body);
+      drawFitText(ctx, item, x + size.gap + dotSize + size.gap, rowY + size.body, width - size.gap * 3 - dotSize, { minSize: 14 });
+    });
+  }
+
+  function drawHabitListBox(ctx, title, items, x, y, width, height, size) {
+    strokeRect(ctx, x, y, width, height);
+    setFont(ctx, 780, size.small);
+    drawFitText(ctx, title, x + size.gap, y + size.small + 5, width - size.gap * 2);
+    const startY = y + size.small + size.gap + 8;
+    const rowH = Math.max(size.body + 6, Math.floor((height - size.small - size.gap * 2) / Math.max(1, items.length)));
+    const box = clamp(Math.round(size.body * 0.72), 12, 18);
+    items.forEach((item, index) => {
+      const rowY = startY + index * rowH;
+      if (rowY + size.body > y + height - size.gap) {
+        return;
+      }
+      const boxY = rowY + Math.round((size.body - box) / 2);
+      strokeRect(ctx, x + size.gap, boxY, box, box);
+      if (item.checked) {
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(x + size.gap + 3, boxY + Math.round(box * 0.55));
+        ctx.lineTo(x + size.gap + Math.round(box * 0.42), boxY + box - 3);
+        ctx.lineTo(x + size.gap + box - 2, boxY + 3);
+        ctx.stroke();
+        ctx.lineWidth = 1;
+      }
+      setFont(ctx, 780, size.body);
+      drawFitText(ctx, item.text, x + size.gap + box + size.gap, rowY + size.body, width - size.gap * 3 - box, { minSize: 14 });
+    });
+  }
+
   function splitWeather(value) {
     const text = String(value || "").trim();
     const parts = text.split(/\s+/).filter(Boolean);
@@ -976,6 +1164,76 @@
       }
       y += rowH;
     });
+  }
+
+  function drawProductivity(ctx, page, width, height, size) {
+    const p = getPageParams(page);
+    const yStart = drawHeader(ctx, page, width, size);
+    const contentX = size.margin;
+    const contentW = width - size.margin * 2;
+    const bottomLimit = height - size.margin - size.small * 1.7;
+    const contentH = Math.max(120, bottomLimit - yStart);
+    const focusH = Math.max(68, Math.round(contentH * 0.34));
+    const progress = clamp(Number(p.progress) || 0, 0, 100);
+
+    strokeRect(ctx, contentX, yStart, contentW, focusH);
+    setFont(ctx, 720, size.small);
+    drawFitText(ctx, "今日重点", contentX + size.gap, yStart + size.small + 5, contentW - size.gap * 2);
+    setFont(ctx, 900, size.body + 2);
+    drawFitText(ctx, p.focus, contentX + size.gap, yStart + size.small + size.body + 13, contentW - size.gap * 2, { minSize: 18 });
+
+    const barX = contentX + size.gap;
+    const barY = yStart + focusH - size.gap - size.small;
+    const barW = contentW - size.gap * 2 - 56;
+    const barH = Math.max(13, Math.round(size.small * 0.62));
+    strokeRect(ctx, barX, barY, barW, barH);
+    ctx.fillRect(Math.round(barX), Math.round(barY), Math.round(barW * progress / 100), Math.round(barH));
+    setFont(ctx, 820, size.small);
+    drawFitText(ctx, `${progress}%`, barX + barW + size.gap, barY + barH, 48);
+
+    const listY = yStart + focusH + size.gap;
+    const listH = Math.max(72, bottomLimit - listY);
+    const colW = Math.floor((contentW - size.gap) / 2);
+    drawTextListBox(ctx, "待办", parsePlainLines(p.todos).slice(0, 5), contentX, listY, colW, listH, size);
+    drawHabitListBox(ctx, p.streak || "习惯", parseHabitLines(p.habits).slice(0, 4), contentX + colW + size.gap, listY, contentW - colW - size.gap, listH, size);
+  }
+
+  function drawAmbient(ctx, page, width, height, size) {
+    const p = getPageParams(page);
+    const yStart = drawHeader(ctx, page, width, size);
+    const contentX = size.margin;
+    const contentW = width - size.margin * 2;
+    const bottomLimit = height - size.margin - size.small * 1.7;
+    const contentH = Math.max(120, bottomLimit - yStart);
+    const quoteW = Math.round(contentW * 0.62);
+    const rightX = contentX + quoteW + size.gap;
+    const rightW = contentW - quoteW - size.gap;
+
+    strokeRect(ctx, contentX, yStart, quoteW, contentH);
+    setFont(ctx, 850, size.body + 1);
+    const quoteBottom = yStart + contentH - size.small * 2.4;
+    drawWrappedText(ctx, p.quote, contentX + size.gap, yStart + size.body + size.gap, quoteW - size.gap * 2, Math.round((size.body + 1) * 1.28), quoteBottom);
+    if (p.by) {
+      setFont(ctx, 720, size.small);
+      ctx.textAlign = "right";
+      drawFitText(ctx, `- ${p.by}`, contentX + quoteW - size.gap, yStart + contentH - size.gap, quoteW - size.gap * 2);
+      ctx.textAlign = "left";
+    }
+
+    const wordH = Math.round(contentH * 0.58);
+    strokeRect(ctx, rightX, yStart, rightW, wordH);
+    setFont(ctx, 720, size.micro);
+    drawFitText(ctx, "Daily Word", rightX + size.gap, yStart + size.micro + 4, rightW - size.gap * 2);
+    setFont(ctx, 950, Math.min(42, size.title));
+    drawFitText(ctx, p.word, rightX + size.gap, yStart + Math.round(wordH * 0.55), rightW - size.gap * 2, { minSize: 23 });
+    setFont(ctx, 760, size.small);
+    drawWrappedText(ctx, p.meaning, rightX + size.gap, yStart + Math.round(wordH * 0.55) + size.small + 8, rightW - size.gap * 2, Math.round(size.small * 1.18), yStart + wordH - size.gap);
+
+    const noteY = yStart + wordH + size.gap;
+    const noteH = contentH - wordH - size.gap;
+    strokeRect(ctx, rightX, noteY, rightW, noteH);
+    setFont(ctx, 780, size.body);
+    drawWrappedText(ctx, p.footerNote, rightX + size.gap, noteY + size.body + size.gap, rightW - size.gap * 2, Math.round(size.body * 1.25), noteY + noteH - size.gap);
   }
 
   function drawHabit(ctx, page, width, height, size) {
@@ -1396,8 +1654,62 @@
       },
       target,
       render: { ...state.model.render },
+      updatePolicy: {
+        mode: "pull",
+        intervalMin: Number(state.model.update?.intervalMin) || 30,
+        manifestUrl: state.model.update?.manifestUrl || "",
+        timezone: state.model.update?.timezone || "Asia/Shanghai"
+      },
       pages
     };
+  }
+
+  function buildDeviceManifest() {
+    const pkg = buildPackage();
+    const baseUrl = getManifestAssetBaseUrl(pkg.updatePolicy.manifestUrl);
+    return {
+      schema: MANIFEST_SCHEMA,
+      generatedAt: pkg.createdAt,
+      tool: pkg.tool,
+      target: pkg.target,
+      updatePolicy: pkg.updatePolicy,
+      pages: pkg.pages.map((page) => {
+        const fileName = createBitmapFileName(page);
+        return {
+          id: page.id,
+          title: page.title,
+          order: page.order,
+          template: page.template,
+          width: page.bitmap.width,
+          height: page.bitmap.height,
+          format: page.bitmap.format,
+          bytes: page.bitmap.bytes,
+          crc32: page.bitmap.crc32,
+          url: new URL(fileName, baseUrl).toString()
+        };
+      })
+    };
+  }
+
+  function getManifestAssetBaseUrl(manifestUrl) {
+    try {
+      const url = new URL(manifestUrl || "./manifest.json", location.href);
+      url.pathname = url.pathname.replace(/\/[^/]*$/, "/");
+      url.search = "";
+      url.hash = "";
+      return url.toString();
+    } catch {
+      return location.href.replace(/\/[^/]*$/, "/");
+    }
+  }
+
+  function createBitmapFileName(page) {
+    const title = String(page.title || page.id || "page")
+      .trim()
+      .replace(/[^\w\u4e00-\u9fa5-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 28) || page.id;
+    return `${String(page.order + 1).padStart(2, "0")}-${title}-${page.bitmap.crc32}.bin`;
   }
 
   function buildBlocks(page) {
@@ -1406,6 +1718,23 @@
     const heading = { type: "heading", text: page.title || "" };
     if (template === "schedule") {
       return [heading, { type: "agenda", items: parseAgendaLines(params.items) }];
+    }
+    if (template === "productivity") {
+      return [
+        heading,
+        { type: "metric", label: "今日重点", value: params.focus, note: `${params.progress}%` },
+        { type: "checklist", items: parsePlainLines(params.todos).map((text) => ({ text, checked: false })) },
+        { type: "checklist", items: parseHabitLines(params.habits) },
+        { type: "metric", label: "连续", value: params.streak, note: "" }
+      ];
+    }
+    if (template === "ambient") {
+      return [
+        heading,
+        { type: "quote", text: params.quote, by: params.by },
+        { type: "metric", label: params.word, value: params.meaning, note: "" },
+        { type: "paragraph", text: params.footerNote }
+      ];
     }
     if (template === "habit") {
       return [heading, { type: "checklist", items: parseHabitLines(params.habits) }, { type: "metric", label: "连续", value: params.streak, note: "" }];
@@ -1474,6 +1803,12 @@
     if (normalized === "habit") {
       return params.habits || "";
     }
+    if (normalized === "productivity") {
+      return `今日重点 | ${params.focus}\n进度 | ${params.progress}\n待办 |\n${params.todos}\n习惯 |\n${params.habits}\n连续 | ${params.streak}`;
+    }
+    if (normalized === "ambient") {
+      return `句子 | ${params.quote}\n署名 | ${params.by}\n单词 | ${params.word}\n含义 | ${params.meaning}\n角标 | ${params.footerNote}`;
+    }
     if (normalized === "quote") {
       return params.quote || "";
     }
@@ -1481,7 +1816,7 @@
       return params.caption || "";
     }
     if (normalized === "today") {
-      return `天气 | ${params.weather}\n待办 | ${params.todo}\n下一项 | ${params.next}\n电量 | ${params.battery}\n提醒 | ${params.note}`;
+      return `日期 | ${params.date}\n星期 | ${params.weekday}\n天气 | ${params.weather}\n空气 | ${params.aqi}\n待办 | ${params.todo}\n下一项 | ${params.next}\n倒计时 | ${params.countdown}\n电量 | ${params.battery}\n提醒 | ${params.note}`;
     }
     return Object.entries(params)
       .map(([key, value]) => `${key} | ${value}`)
@@ -1497,6 +1832,29 @@
     if (normalized === "habit") {
       return { habits: text };
     }
+    if (normalized === "productivity") {
+      const result = {};
+      const sections = splitNamedSections(text);
+      parseMetricLines(text).forEach((item) => {
+        if (item.label.includes("重点")) result.focus = item.value;
+        if (item.label.includes("进度")) result.progress = item.value;
+        if (item.label.includes("连续")) result.streak = item.value;
+      });
+      if (sections["待办"]) result.todos = sections["待办"];
+      if (sections["习惯"]) result.habits = sections["习惯"];
+      return result;
+    }
+    if (normalized === "ambient") {
+      const result = {};
+      parseMetricLines(text).forEach((item) => {
+        if (item.label.includes("句子")) result.quote = item.value;
+        if (item.label.includes("署名")) result.by = item.value;
+        if (item.label.includes("单词")) result.word = item.value;
+        if (item.label.includes("含义")) result.meaning = item.value;
+        if (item.label.includes("角标")) result.footerNote = item.value;
+      });
+      return result;
+    }
     if (normalized === "quote") {
       return { quote: text };
     }
@@ -1507,8 +1865,12 @@
       const result = {};
       parseMetricLines(text).forEach((item) => {
         if (item.label.includes("天气")) result.weather = item.value;
+        if (item.label.includes("日期")) result.date = item.value;
+        if (item.label.includes("星期")) result.weekday = item.value;
+        if (item.label.includes("空气")) result.aqi = item.value;
         if (item.label.includes("待办")) result.todo = item.value;
         if (item.label.includes("下一")) result.next = item.value;
+        if (item.label.includes("倒计时")) result.countdown = item.value;
         if (item.label.includes("电量")) result.battery = item.value;
         if (item.label.includes("提醒")) result.note = item.value;
       });
@@ -1541,6 +1903,42 @@
           note: tokens.join(" ")
         };
       });
+  }
+
+  function parsePlainLines(text) {
+    return String(text || "")
+      .split(/\r?\n/)
+      .map((line) => line.replace(/^\s*(?:[-*]\s*|\d+[.)]\s*)/, "").trim())
+      .filter(Boolean);
+  }
+
+  function splitNamedSections(text) {
+    const result = {};
+    let active = "";
+    const sectionLabels = new Set(["待办", "习惯"]);
+    const topLevelLabels = new Set(["今日重点", "重点", "进度", "连续"]);
+    String(text || "").split(/\r?\n/).forEach((rawLine) => {
+      const line = rawLine.trim();
+      const match = line.match(/^([^|]+)\|\s*(.*)$/);
+      if (match) {
+        const label = match[1].trim();
+        const value = match[2].trim();
+        if (sectionLabels.has(label)) {
+          active = label;
+          result[active] = value ? [value] : [];
+          return;
+        }
+        if (active && !topLevelLabels.has(label)) {
+          result[active].push(line);
+          return;
+        }
+        active = "";
+      }
+      if (active && line) {
+        result[active].push(line);
+      }
+    });
+    return Object.fromEntries(Object.entries(result).map(([key, lines]) => [key, lines.join("\n")]));
   }
 
   function parseAgendaLines(text) {
@@ -1798,6 +2196,26 @@
     const packageText = JSON.stringify(buildPackage(), null, 2);
     downloadBlob(new Blob([packageText], { type: "application/json;charset=utf-8" }), `${createPackageId()}.json`);
     logLine("已导出内容包 JSON。");
+  }
+
+  function downloadManifest() {
+    const manifestText = JSON.stringify(buildDeviceManifest(), null, 2);
+    downloadBlob(new Blob([manifestText], { type: "application/json;charset=utf-8" }), "manifest.json");
+    logLine("已导出设备拉取 Manifest。");
+  }
+
+  function downloadBin() {
+    renderPageToCanvas(getActivePage(), el.previewCanvas);
+    const bitmap = packCanvas(el.previewCanvas);
+    const page = getActivePage();
+    const order = Math.max(0, state.model.pages.findIndex((item) => item.id === page.id));
+    const filename = createBitmapFileName({
+      title: page.title,
+      order,
+      bitmap: bitmap.meta
+    });
+    downloadBlob(new Blob([bitmap.bytes], { type: "application/octet-stream" }), filename);
+    logLine(`已导出当前页 BIN：${bitmap.bytes.length} B。`);
   }
 
   function downloadPng() {

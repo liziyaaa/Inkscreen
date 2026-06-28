@@ -5,15 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#eef4f8">
     <title>InkScreen Studio</title>
-    <link rel="manifest" href="./manifest.json?v=0.3.1">
-    <link rel="stylesheet" href="./styles.css?v=0.3.1">
+    <link rel="manifest" href="./manifest.json?v=0.4.0">
+    <link rel="stylesheet" href="./styles.css?v=0.4.0">
   </head>
   <body>
     <main class="app-shell">
       <header class="topbar">
         <div>
           <p class="eyebrow">InkScreen</p>
-          <h1>墨水屏内容工作台</h1>
+          <h1>4.2 寸墨水屏摆件工作台</h1>
         </div>
         <div class="status-pill" id="connectionStatus">未连接</div>
       </header>
@@ -69,20 +69,20 @@
             <label class="field compact">
               <span>尺寸</span>
               <select id="presetInput">
+                <option value="400x300">4.2 寸 400×300</option>
                 <option value="250x122">2.13 寸横向 250×122</option>
                 <option value="122x250">2.13 寸纵向 122×250</option>
                 <option value="296x128">2.9 寸 296×128</option>
-                <option value="400x300">4.2 寸 400×300</option>
                 <option value="custom">自定义</option>
               </select>
             </label>
             <label class="field compact">
               <span>宽</span>
-              <input id="widthInput" type="number" min="64" max="1200" step="1" value="250">
+              <input id="widthInput" type="number" min="64" max="1200" step="1" value="400">
             </label>
             <label class="field compact">
               <span>高</span>
-              <input id="heightInput" type="number" min="64" max="1200" step="1" value="122">
+              <input id="heightInput" type="number" min="64" max="1200" step="1" value="300">
             </label>
             <label class="field compact">
               <span>二值化</span>
@@ -102,7 +102,7 @@
           </div>
 
           <div class="preview-frame">
-            <canvas id="previewCanvas" width="250" height="122"></canvas>
+            <canvas id="previewCanvas" width="400" height="300"></canvas>
           </div>
 
           <div class="metric-strip">
@@ -112,7 +112,7 @@
             </div>
             <div>
               <span>位图</span>
-              <strong id="payloadSize">3813 B</strong>
+              <strong id="payloadSize">15000 B</strong>
             </div>
             <div>
               <span>CRC32</span>
@@ -159,7 +159,24 @@
 
           <div class="divider"></div>
 
+          <label class="field">
+            <span>设备拉取 URL</span>
+            <input id="manifestUrlInput" type="text" inputmode="url" autocomplete="off" placeholder="https://.../device/manifest.json">
+          </label>
+          <div class="auto-grid">
+            <label class="field">
+              <span>间隔 min</span>
+              <input id="updateIntervalInput" type="number" min="5" max="1440" step="5" value="30">
+            </label>
+            <label class="field">
+              <span>时区</span>
+              <input id="timezoneInput" type="text" autocomplete="off" value="Asia/Shanghai">
+            </label>
+          </div>
+
           <div class="action-grid">
+            <button id="downloadManifestButton" type="button">导出 Manifest</button>
+            <button id="downloadBinButton" type="button">导出当前 BIN</button>
             <button id="downloadPackageButton" type="button">导出 JSON</button>
             <button id="downloadPngButton" type="button">导出 PNG</button>
           </div>
@@ -169,6 +186,6 @@
       </section>
     </main>
 
-    <script src="./app.js?v=0.3.1" defer></script>
+    <script src="./app.js?v=0.4.0" defer></script>
   </body>
 </html>

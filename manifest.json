@@ -1,7 +1,7 @@
 {
   "name": "InkScreen Studio",
   "short_name": "InkScreen",
-  "description": "Mobile tool for composing and uploading ESP32-C3 e-paper display content.",
+  "description": "Mobile tool for composing 4.2 inch ESP32-C3 e-paper desk display content.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
