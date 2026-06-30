@@ -10,7 +10,7 @@ driving a 4.2 inch 400×300 black-white e-paper display.
   "schema": "inkscreen.package.v1",
   "packageId": "ink_20260628_123456_ab12",
   "createdAt": "2026-06-28T12:34:56.000Z",
-  "tool": { "name": "InkScreen Studio", "version": "0.4.0" },
+  "tool": { "name": "InkScreen Studio", "version": "0.4.1" },
   "target": {
     "width": 400,
     "height": 300,
@@ -21,11 +21,13 @@ driving a 4.2 inch 400×300 black-white e-paper display.
     "blackBit": 1
   },
   "render": {
-    "threshold": 150,
+    "version": 2,
+    "threshold": 128,
     "dither": "threshold",
     "invert": false,
     "fontScale": 1,
-    "rasterScale": 3
+    "rasterScale": 4,
+    "crisp": true
   },
   "updatePolicy": {
     "mode": "pull",
@@ -126,7 +128,7 @@ The recommended desk ornament mode is ESP32 pull update:
 {
   "schema": "inkscreen.manifest.v1",
   "generatedAt": "2026-06-28T12:34:56.000Z",
-  "tool": { "name": "InkScreen Studio", "version": "0.4.0" },
+  "tool": { "name": "InkScreen Studio", "version": "0.4.1" },
   "target": { "width": 400, "height": 300, "bpp": 1 },
   "updatePolicy": {
     "mode": "pull",

@@ -1,13 +1,16 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "0.4.0";
+  const APP_VERSION = "0.4.1";
   const STORAGE_KEY = "inkscreen.studio.v3";
+  const RENDER_VERSION = 2;
   const SCHEMA = "inkscreen.package.v1";
   const MANIFEST_SCHEMA = "inkscreen.manifest.v1";
   const CHUNK_SIZE = 180;
-  const RASTER_SCALE = 3;
-  const FONT_STACK = '"Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", Arial, sans-serif';
+  const RASTER_SCALE = 4;
+  const DEFAULT_THRESHOLD = 128;
+  const CRISP_GAMMA = 0.82;
+  const FONT_STACK = '"DengXian", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", Arial, sans-serif';
 
   const SERVICE_UUID = "9f2a0001-6f37-4f1e-9a5e-1b5c00000001";
   const CONTROL_UUID = "9f2a0002-6f37-4f1e-9a5e-1b5c00000001";
@@ -447,11 +450,13 @@
         timezone: "Asia/Shanghai"
       },
       render: {
-        threshold: 150,
+        version: RENDER_VERSION,
+        threshold: DEFAULT_THRESHOLD,
         dither: "threshold",
         invert: false,
         fontScale: 1,
-        rasterScale: RASTER_SCALE
+        rasterScale: RASTER_SCALE,
+        crisp: true
       },
       pages: [
         createPage("today", { id: "page_home" }),
@@ -499,14 +504,27 @@
       timezone: "Asia/Shanghai",
       ...(state.model.update || {})
     };
+    const existingRender = state.model.render || {};
+    const needsRenderMigration = Number(existingRender.version || 0) < RENDER_VERSION;
     state.model.render = {
-      threshold: 150,
+      version: RENDER_VERSION,
+      threshold: DEFAULT_THRESHOLD,
       dither: "threshold",
       invert: false,
       fontScale: 1,
       rasterScale: RASTER_SCALE,
-      ...(state.model.render || {})
+      crisp: true,
+      ...existingRender
     };
+    if (needsRenderMigration) {
+      Object.assign(state.model.render, {
+        version: RENDER_VERSION,
+        threshold: DEFAULT_THRESHOLD,
+        dither: "threshold",
+        rasterScale: RASTER_SCALE,
+        crisp: true
+      });
+    }
     if (!Array.isArray(state.model.pages) || state.model.pages.length === 0) {
       state.model.pages = [createPage("today")];
     }
@@ -902,10 +920,10 @@
       return {
         margin: Math.round(16 * scale),
         gap: Math.round(8 * scale),
-        title: Math.round(34 * scale),
-        body: Math.round(21 * scale),
-        small: Math.round(15 * scale),
-        micro: Math.round(12 * scale)
+        title: Math.round(30 * scale),
+        body: Math.round(20 * scale),
+        small: Math.round(14 * scale),
+        micro: Math.round(11 * scale)
       };
     }
     return {
@@ -920,7 +938,7 @@
 
   function drawHeader(ctx, page, width, size) {
     const y = size.margin + size.title;
-    setFont(ctx, 800, size.title);
+    setFont(ctx, 700, size.title);
     drawFitText(ctx, page.title || "InkScreen", size.margin, y, width - size.margin * 2);
     ctx.beginPath();
     ctx.moveTo(size.margin, snap(y + size.gap));
@@ -1060,9 +1078,7 @@
       drawFitText(ctx, metric.value, cellX + size.gap, valueY, cellW - size.gap * 2, { minSize: 10 });
       if (metric.note && cellH >= size.body + size.small + 15) {
         setFont(ctx, 600, size.micro);
-        ctx.fillStyle = "#555555";
         drawFitText(ctx, metric.note, cellX + size.gap, cellY + cellH - 3, cellW - size.gap * 2);
-        ctx.fillStyle = "#111111";
       }
     });
   }
@@ -1158,9 +1174,7 @@
       drawFitText(ctx, item.text, size.margin + timeW, y + size.body + 3, width - size.margin * 2 - timeW - size.gap);
       if (item.meta) {
         setFont(ctx, 650, size.micro);
-        ctx.fillStyle = "#555555";
         drawFitText(ctx, item.meta, size.margin + timeW, y + rowH - 5, width - size.margin * 2 - timeW - size.gap);
-        ctx.fillStyle = "#111111";
       }
       y += rowH;
     });
@@ -1173,22 +1187,28 @@
     const contentW = width - size.margin * 2;
     const bottomLimit = height - size.margin - size.small * 1.7;
     const contentH = Math.max(120, bottomLimit - yStart);
-    const focusH = Math.max(68, Math.round(contentH * 0.34));
     const progress = clamp(Number(p.progress) || 0, 0, 100);
+    const barH = Math.max(10, Math.round(size.small * 0.72));
+    const minFocusH = size.small + size.body + barH + size.gap * 4 + 12;
+    const focusH = Math.min(
+      Math.max(minFocusH, Math.round(contentH * 0.42)),
+      Math.max(minFocusH, contentH - 82)
+    );
 
     strokeRect(ctx, contentX, yStart, contentW, focusH);
-    setFont(ctx, 720, size.small);
-    drawFitText(ctx, "今日重点", contentX + size.gap, yStart + size.small + 5, contentW - size.gap * 2);
-    setFont(ctx, 900, size.body + 2);
-    drawFitText(ctx, p.focus, contentX + size.gap, yStart + size.small + size.body + 13, contentW - size.gap * 2, { minSize: 18 });
+    const labelY = yStart + size.small + 5;
+    const focusY = labelY + size.body + size.gap;
+    setFont(ctx, 600, size.small);
+    drawFitText(ctx, "今日重点", contentX + size.gap, labelY, contentW - size.gap * 2);
+    setFont(ctx, 650, size.body + 1);
+    drawFitText(ctx, p.focus, contentX + size.gap, focusY, contentW - size.gap * 2, { minSize: 16 });
 
     const barX = contentX + size.gap;
-    const barY = yStart + focusH - size.gap - size.small;
+    const barY = yStart + focusH - size.gap - barH - 1;
     const barW = contentW - size.gap * 2 - 56;
-    const barH = Math.max(13, Math.round(size.small * 0.62));
     strokeRect(ctx, barX, barY, barW, barH);
     ctx.fillRect(Math.round(barX), Math.round(barY), Math.round(barW * progress / 100), Math.round(barH));
-    setFont(ctx, 820, size.small);
+    setFont(ctx, 650, size.small);
     drawFitText(ctx, `${progress}%`, barX + barW + size.gap, barY + barH, 48);
 
     const listY = yStart + focusH + size.gap;
@@ -1271,9 +1291,9 @@
   function drawQuote(ctx, page, width, height, size) {
     let y = drawHeader(ctx, page, width, size);
     const params = getPageParams(page);
-    const bodyFont = Math.max(size.body + 2, Math.round(Math.min(width, height) * 0.13));
+    const bodyFont = Math.max(size.body + 2, Math.round(Math.min(width, height) * 0.105));
     setFont(ctx, 850, bodyFont);
-    y += size.gap;
+    y += size.gap + bodyFont;
     drawWrappedText(ctx, params.quote || "", size.margin, y, width - size.margin * 2, Math.round(bodyFont * 1.28), height - size.margin - size.small * 2);
     if (params.by) {
       setFont(ctx, 700, size.small);
@@ -1305,9 +1325,7 @@
     }
 
     setFont(ctx, 750, size.body);
-    ctx.fillStyle = "#555555";
     drawWrappedText(ctx, params.caption || "", areaX + size.gap, areaY + size.body + size.gap, areaW - size.gap * 2, Math.round(size.body * 1.3), areaY + areaH - size.gap);
-    ctx.fillStyle = "#111111";
   }
 
   function drawWeather(ctx, page, width, height, size) {
@@ -1330,20 +1348,20 @@
     const p = getPageParams(page);
     let y = drawHeader(ctx, page, width, size);
     const progress = clamp(Number(p.progress) || 0, 0, 100);
-    setFont(ctx, 850, size.body + 3);
+    setFont(ctx, 650, size.body + 2);
     drawWrappedText(ctx, p.task, size.margin, y + size.body + 2, width - size.margin * 2, Math.round((size.body + 3) * 1.2), y + size.body * 3.2);
-    setFont(ctx, 950, Math.max(30, Math.round(Math.min(width, height) * 0.3)));
+    setFont(ctx, 700, Math.max(30, Math.round(Math.min(width, height) * 0.28)));
     drawFitText(ctx, `${p.minutes}`, size.margin, height - size.margin - size.small * 2.2, width * 0.42);
-    setFont(ctx, 850, size.body);
+    setFont(ctx, 650, size.body);
     drawFitText(ctx, "min", size.margin + width * 0.28, height - size.margin - size.small * 2.2, width * 0.18);
     const barX = width * 0.48;
-    const barY = height - size.margin - size.body * 2.6;
+    const barY = height - size.margin - size.body * 2.35;
     const barW = width - barX - size.margin;
-    const barH = Math.max(10, size.body);
+    const barH = Math.max(11, Math.round(size.body * 0.72));
+    setFont(ctx, 600, size.small);
+    drawFitText(ctx, `${progress}%  ${p.next}`, barX, barY - size.gap, barW);
     strokeRect(ctx, barX, barY, barW, barH);
     ctx.fillRect(Math.round(barX), Math.round(barY), Math.round(barW * progress / 100), Math.round(barH));
-    setFont(ctx, 760, size.small);
-    drawFitText(ctx, `${progress}%  ${p.next}`, barX, barY + barH + size.small + 3, barW);
   }
 
   function drawCountdown(ctx, page, width, height, size) {
@@ -1413,7 +1431,21 @@
   function setFont(ctx, weight, size) {
     ctx.__fontWeight = weight;
     ctx.__fontSize = Math.round(size);
-    ctx.font = `${ctx.__fontWeight} ${ctx.__fontSize}px ${FONT_STACK}`;
+    ctx.font = `${normalizeFontWeight(weight)} ${ctx.__fontSize}px ${FONT_STACK}`;
+  }
+
+  function normalizeFontWeight(weight) {
+    const requested = Number(weight) || 600;
+    if (requested >= 900) {
+      return 700;
+    }
+    if (requested >= 800) {
+      return 650;
+    }
+    if (requested >= 700) {
+      return 600;
+    }
+    return clamp(Math.round(requested), 400, 600);
   }
 
   function strokeRect(ctx, x, y, width, height) {
@@ -1505,13 +1537,19 @@
         if (render.invert) {
           value = 255 - value;
         }
+        if (render.crisp !== false && render.dither !== "floyd") {
+          value = 255 * Math.pow(clamp(value, 0, 255) / 255, CRISP_GAMMA);
+        }
         gray[y * width + x] = value;
       }
     }
 
-    const mono = render.dither === "floyd"
+    let mono = render.dither === "floyd"
       ? ditherGray(gray, width, height, threshold)
       : thresholdGray(gray, threshold);
+    if (render.crisp !== false && render.dither !== "floyd") {
+      mono = removeIsolatedInk(mono, width, height);
+    }
 
     const targetCtx = canvas.getContext("2d", { willReadFrequently: true });
     const targetData = targetCtx.createImageData(width, height);
@@ -1532,6 +1570,31 @@
       mono[i] = gray[i] < threshold ? 1 : 0;
     }
     return mono;
+  }
+
+  function removeIsolatedInk(mono, width, height) {
+    const out = new Uint8Array(mono);
+    for (let y = 1; y < height - 1; y += 1) {
+      for (let x = 1; x < width - 1; x += 1) {
+        const index = y * width + x;
+        if (!mono[index]) {
+          continue;
+        }
+        let neighbors = 0;
+        for (let oy = -1; oy <= 1; oy += 1) {
+          for (let ox = -1; ox <= 1; ox += 1) {
+            if (ox === 0 && oy === 0) {
+              continue;
+            }
+            neighbors += mono[(y + oy) * width + x + ox];
+          }
+        }
+        if (neighbors === 0) {
+          out[index] = 0;
+        }
+      }
+    }
+    return out;
   }
 
   function ditherGray(gray, width, height, threshold) {
