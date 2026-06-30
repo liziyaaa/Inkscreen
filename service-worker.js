@@ -1,5 +1,5 @@
-const CACHE_NAME = "inkscreen-studio-v6";
-const VERSION = "0.4.1";
+const CACHE_NAME = "inkscreen-studio-v7";
+const VERSION = "0.4.2";
 const ASSETS = [
   "./",
   "./index.html",

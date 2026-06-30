@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "0.4.1";
+  const APP_VERSION = "0.4.2";
   const STORAGE_KEY = "inkscreen.studio.v3";
   const RENDER_VERSION = 2;
   const SCHEMA = "inkscreen.package.v1";
