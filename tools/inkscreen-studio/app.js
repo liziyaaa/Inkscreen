@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "0.4.2";
+  const APP_VERSION = "0.4.3";
   const STORAGE_KEY = "inkscreen.studio.v3";
   const RENDER_VERSION = 2;
   const SCHEMA = "inkscreen.package.v1";
@@ -95,9 +95,9 @@
       title: "效率看板",
       footer: "Focus",
       defaults: {
-        focus: "完成 ESP32 拉取固件",
+        focus: "完成设备内容更新适配",
         progress: "55",
-        todos: "确认 4.2 寸屏排线\n整理 API 数据源\n晚上复盘 10 分钟",
+        todos: "确认目标屏幕连接\n整理 API 数据源\n晚上复盘 10 分钟",
         habits: "早起 | 1\n阅读 | 1\n运动 | 0",
         streak: "连续 5 天"
       },
@@ -159,7 +159,7 @@
       title: "专注",
       footer: "Focus",
       defaults: {
-        task: "画 ESP32 原理图",
+        task: "整理显示设备接口",
         minutes: "25",
         progress: "40",
         next: "休息 5 min"
@@ -247,7 +247,7 @@
       label: "设备状态",
       kind: "device",
       title: "设备",
-      footer: "ESP32-C3",
+      footer: "显示设备",
       defaults: {
         wifi: "LiziLab",
         ip: "192.168.3.42",
@@ -2053,7 +2053,7 @@
       });
       device.addEventListener("gattserverdisconnected", handleBleDisconnected);
 
-      logLine(`正在连接：${device.name || "ESP32-C3"}`);
+      logLine(`正在连接：${device.name || "显示设备"}`);
       const server = await device.gatt.connect();
       const service = await server.getPrimaryService(SERVICE_UUID);
       const control = await service.getCharacteristic(CONTROL_UUID);

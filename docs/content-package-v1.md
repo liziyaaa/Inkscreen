@@ -1,7 +1,8 @@
 ﻿# InkScreen Content Package v1
 
-InkScreen Studio exports firmware-friendly JSON and bitmap files for an ESP32-C3
-driving a 4.2 inch 400×300 black-white e-paper display.
+InkScreen Studio exports JSON and monochrome bitmap files for compatible e-paper devices.
+Target width and height are configurable; 400×300 below is a format example, not a hardware specification for the desk display.
+The existing physical prototype was developed independently of this editor. Its firmware compatibility with this protocol has not been verified.
 
 ## Package Envelope
 
@@ -10,7 +11,7 @@ driving a 4.2 inch 400×300 black-white e-paper display.
   "schema": "inkscreen.package.v1",
   "packageId": "ink_20260628_123456_ab12",
   "createdAt": "2026-06-28T12:34:56.000Z",
-  "tool": { "name": "InkScreen Studio", "version": "0.4.2" },
+  "tool": { "name": "InkScreen Studio", "version": "0.4.3" },
   "target": {
     "width": 400,
     "height": 300,
@@ -122,13 +123,13 @@ bitIndex  = 7 - (x % 8)
 
 ## Pull Manifest
 
-The recommended desk ornament mode is ESP32 pull update:
+A compatible device can implement a pull-update loop:
 
 ```json
 {
   "schema": "inkscreen.manifest.v1",
   "generatedAt": "2026-06-28T12:34:56.000Z",
-  "tool": { "name": "InkScreen Studio", "version": "0.4.2" },
+  "tool": { "name": "InkScreen Studio", "version": "0.4.3" },
   "target": { "width": 400, "height": 300, "bpp": 1 },
   "updatePolicy": {
     "mode": "pull",
@@ -158,7 +159,7 @@ Firmware loop:
 1. Wake by timer or wheel button.
 2. Connect Wi-Fi and sync time with NTP.
 3. `GET manifestUrl`, parse `inkscreen.manifest.v1`.
-4. Compare each page `crc32` with the CRC stored in NVS/LittleFS.
+4. Compare each page `crc32` with the CRC stored in device-local persistent storage.
 5. Download only changed `.bin` files.
 6. Draw the selected page to the e-paper, then store CRC and sleep.
 
