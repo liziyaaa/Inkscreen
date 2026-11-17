@@ -22,23 +22,51 @@ An e-paper desk display project with a general-purpose layout editor.
 
 ### 实机动态演示
 
-项目保留有真实设备运行的 GIF，作为屏幕实际展示与交互效果的记录。实机表现以这类现场演示为准，不能用外观渲染替代。
+下面是已有设备的真实运行记录，展示墨水屏的实际显示效果。
+
+<p align="center">
+  <img src="assets/gifs/inkscreen-demo.gif" alt="InkScreen 墨水屏摆件实机动态演示" width="720">
+</p>
+
+### 三种桌面信息页面
+
+以课程、训练和 AI 额度三个场景，展示信息常驻桌面的排版方式。以下为整机与页面渲染，采用白色微透塑料外壳，内部电路板隐约可见。
+
+#### 今日课程
+
+把上课时间、课程名称与教室放在同一张页面上，方便随时查看当天安排。
+
+<p align="center">
+  <img src="assets/images/course-schedule.jpg" alt="今日课程页面：上课时间、课程名称和教室" width="900">
+</p>
+
+#### 训练清单
+
+集中呈现训练动作、组数、次数与组间休息时间，用清单组织一次完整训练。
+
+<p align="center">
+  <img src="assets/images/workout-checklist.jpg" alt="训练清单页面：胸肩三头训练动作、组数、次数和休息时间" width="900">
+</p>
+
+#### AI 额度看板
+
+将多个 AI 服务的剩余额度、进度条与重置时间集中显示，便于安排使用节奏。
+
+<p align="center">
+  <img src="assets/images/ai-quota-dashboard.jpg" alt="AI 额度看板页面：Claude 与 ChatGPT 剩余额度和重置时间" width="900">
+</p>
+
+这三张图用于展示整机外观与页面设计；实时额度接入、训练交互及外壳制造进度以实际工程记录为准。
 
 ### 电路板与屏幕结构
 
-电路板渲染展示已有实物的板级外观与装配关系：屏幕作为主要显示面，电路板位于下方，通过支撑件固定形成桌面摆件主体。它是实物结构对应的设计渲染，不是实物照片。
+屏幕构成主要显示面，电路板位于下方，由支撑件固定。下图为对应已有实物板级外观与装配关系的设计渲染。
 
-### 三种功能展示
+<p align="center">
+  <img src="assets/images/pcb-assembly.jpg" alt="墨水屏与电路板的装配结构渲染" width="900">
+</p>
 
-| 页面 | 展示内容 | 素材性质 |
-|---|---|---|
-| 课程 / 日程 | 课程名称、时间与教室，集中呈现当天安排 | 白色微透塑料外壳与内部电路板的功能渲染 |
-| AI 额度看板 | 多个服务的剩余额度、进度与重置时间 | 页面内容与外观渲染，不代表已接入实时额度接口 |
-| 训练清单 | 动作、组数、次数、休息时间与勾选区域 | 页面内容与外观渲染，不代表实机具有触控或自动训练记录能力 |
-
-外壳渲染在已有电路板结构上加入白色微透塑料外壳，用于展示整机外观与信息排版。三张功能图不作为外壳已制造、对应数据服务已接通或功能已完成联调的证明。
-
-五份原始素材的归档清单见 [演示素材说明](assets/README.md)。目前媒体文件尚待归档，此处暂不放置不可用的图片链接。
+全部展示素材已收录在仓库，见 [素材索引](assets/README.md)。硬件资料见 [硬件与结构](hardware/README.md)。
 
 ## 这个项目里值得折腾的地方
 
@@ -47,14 +75,14 @@ An e-paper desk display project with a general-purpose layout editor.
 - **电路与外观一起考虑。** 板级结构、屏幕显示面、支撑件和外壳展示共同组成整机方案。
 - **内容制作可以独立复用。** 编辑器面向可配置像素尺寸与黑白位图，不将工具绑定到某一种主控或屏幕对角线尺寸。
 - **导出内容，也保留结构。** PNG 便于查看，BIN 便于设备加载，JSON 保留页面参数与位图，Manifest 为设备侧按需更新提供约定。
-- **展示与适配分开推进。** 实物运行记录、外观渲染和工具能力分别说明，后续可以逐步补齐硬件文件、固件接入和测量结果。
+- **展示与适配分开推进。** 后续可逐步补齐硬件文件、固件接入和功耗测量结果。
 
 ## 项目组成
 
 | 部分 | 当前内容 | 从哪里看 |
 |---|---|---|
 | 墨水屏摆件 | 已有实物；板级结构与整机外观展示 | [硬件与结构说明](hardware/README.md) |
-| 演示素材 | 实机 GIF、电路板渲染、三张功能渲染的归档清单 | [assets/](assets/) |
+| 演示素材 | 实机 GIF、电路板渲染与三张功能展示图 | [assets/](assets/) |
 | 通用界面工具 | 浏览器模板编辑、图像处理、预览与导出 | [tools/inkscreen-studio/](tools/inkscreen-studio/) |
 | 内容交换协议 | 页面模型、位图打包、Manifest 与传输约定 | [docs/content-package-v1.md](docs/content-package-v1.md) |
 
@@ -127,7 +155,7 @@ python -m http.server 5173
 | 想看什么 | 从这里开始 |
 |---|---|
 | 硬件与结构展示范围 | [hardware/README.md](hardware/README.md) |
-| 演示素材分类与归档状态 | [assets/README.md](assets/README.md) |
+| 演示 GIF 与图片索引 | [assets/README.md](assets/README.md) |
 | 编辑器使用与传输说明 | [tools/inkscreen-studio/README.md](tools/inkscreen-studio/README.md) |
 | 页面编辑、渲染与导出源码 | [app.js](tools/inkscreen-studio/app.js) |
 | 编辑器界面与样式 | [index.html](tools/inkscreen-studio/index.html) · [styles.css](tools/inkscreen-studio/styles.css) |
@@ -140,7 +168,7 @@ python -m http.server 5173
 
 后续可以继续做的事：
 
-- 归档五份演示原始素材，并补充硬件工程、固件与装配说明。
+- 补充硬件工程、实物固件、BOM 与装配说明。
 - 记录休眠电流、刷新电流、单次更新能量和电池使用条件。
 - 对齐实际显示驱动与工具导出的位图格式，完成一条可复现的接入路径。
 - 根据课程、额度与训练等场景，分别补充数据来源和更新策略。
